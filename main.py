@@ -228,7 +228,7 @@ class Ticket():
     
 ####################################################################################################    
     
-class Main():
+class KanbanTicketer():
     def __init__(self, fileloc):
         self.file = fileloc
     
@@ -239,7 +239,7 @@ class Main():
                 break
             tkt = Ticket(wo.get_ticket_info(ticket=ticket))
             # tkt.makePDF() # make into a PDF page
-            # tkt.addpage(wip_packet, tkt.page) # add page to WIP packet
+            # tkt.addpage(packet, tkt.page) # add page to packet
         return packet
     
     def run(self):
@@ -248,9 +248,8 @@ class Main():
         self.make_packet(wo, "WIP")
         self.make_packet(wo, "ASSEMBLY")
         print("Process finished --- %s seconds ---" % (time.time() - start_time))
-        print('end')
-    
 
-m = Main('KANBAN QUERY.csv')
-m.run()
+
+k = KanbanTicketer('KANBAN QUERY.csv')
+k.run()
 print('end')
