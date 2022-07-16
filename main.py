@@ -1,87 +1,39 @@
 import re
 import pandas as pd
 from datetime import datetime
+import time
 
 class WOquery():
     def __init__(self, input_csv):
-        # INITIAL SETUP
         self.df = pd.read_csv(input_csv, encoding='latin-1', na_filter=False) # IMPORT FISHBOWL QUERY
+        self.setup()
+           
+    def setup(self):
+        # LETTER CASE CHANGES
         self.df.columns = [x.lower() for x in self.df.columns] # MAKE COLUMNS LOWERCASE
-        self.df.drop(self.df.columns[self.df.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True) # DROP BLANK COLS
-        self.df.drop(columns=['bomitemdescription','itemname', 'bomitemid'], inplace=True) # DROP UNUSED COLUMNS
-        self.df = self.uppercase() # MAKE STR VALUES UPPERCASE
-        self.df = self.clean_dates() # CLEAN UP DATES
-        
-        # FIX NUMERIC DATATYPES AND VALUES
+        self.df = self.uppercase_df() # MAKE STR VALUES UPPERCASE
+
+        # FIX DATES AND NUMERIC VALUES
         for col in ('typeid','invqty', 'woitemqty', 'woitemtotal', 'qtyordered'):
             self.df[col] = pd.to_numeric(self.df[col]) 
         self.df['invqty'].fillna(value=0, inplace=True)
-                                 
+        self.clean_dates()
+        
+        # DELETE UNNECESSARY COLUMNS
+        self.df.drop(self.df.columns[self.df.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True, errors='ignore') # DROP BLANK COLS
+        self.df.drop(columns=['bomitemdescription','itemname', 'bomitemid'], inplace=True, errors='ignore')
+        
         # CREATE SOME NEW COLUMNS
         self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
         self.df['ticket'] = None
         self.df['processed'] = False # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
         
-        # EXTRACT CATEGORY FROM CUSTOM FIELD COLUMN
+        # FILL NEW COLUMNS
         findstr = '"name": "Category", "type": "Drop-Down List", "value": "'
-        self.df = self.extract_cstmfld(findstr, 'cat')
-        
-        # FILL TICKET COLUMN WITH TICKET TYPE
-        self.df = self.find_ticket_type()
-        
-    @staticmethod    
-    def col_uniques(df, col):
-        '''
-        Returns a list of unique values for the given column
-        e.g. unique_vals = WOquery.col_uniques(df, 'cat')
-        '''
-        return pd.unique(df[col]).tolist()    
-    
-    def sort_df(self, ticket=None, df=None):
-        '''  
-        sorts the dataframe based on the order needed for either WIP or ASSEMBLY tickets
-        '''  
-        if df is None:
-            df=self.df
-        if ticket == "WIP":
-            df.sort_values(by=['partdescription','bomitempart'], axis=0, ascending=True, inplace=True)
-        elif ticket == "ASSEMBLY":
-            df.sort_values(by=['wonum','datescheduledfulfillment'], axis=0, ascending=True, inplace=True)
-        else:
-            raise Exception("No sort method selected. You must chose either 'WIP' or 'ASSEMBLY'")
-        df.reset_index(drop=True, inplace=True) 
-        return df
+        self.extract_cstmfld(findstr, 'cat')
+        self.find_ticket_types()
 
-    def extract_cstmfld(self, findstr, outputcol, df=None, readstr=r"[A-Z]*[a-z]*", uppercase=True, required=True):
-        '''
-        extracts a value from the cstmfld column and outputs it to another column
-        '''  
-        if df is None:
-            df=self.df
-        for i in df['cstmfld'].index:
-            result = re.search(r'(?<=' + f'{findstr}' + r')' + f'{readstr}', df.at[i, 'cstmfld'])
-            if result and uppercase:
-                df.at[i, outputcol] = result.group(0).upper()
-            elif result:
-                df.at[i, outputcol] = result.group(0)
-            elif required:
-                raise Exception('A necessary Fishbowl custom field is either unreadable or missing information.')
-        return df
-    
-    def clean_dates (self, df=None):
-        '''
-        Changes the imported date values into MM/DD/YY strings
-        '''
-        if df is None:
-            df=self.df
-        for i in df['datescheduledfulfillment'].index:
-            date = datetime.strptime(df.at[i, 'datescheduledfulfillment'], '%Y-%m-%d %H:%M:%S.0')
-            date = datetime.strftime(date, '%y/%m/%d')
-            df.at[i, 'datescheduledfulfillment'] = date
-        # df['datescheduledfufillment'].apply(lambda x: datetime.strptime(x, '%x'))
-        return df
-
-    def uppercase(self, df=None):
+    def uppercase_df(self, df=None):
         '''
         Makes (almost) all string values in df uppercase. Needed for several methods to read strings correctly.
         '''
@@ -91,15 +43,26 @@ class WOquery():
             if col == 'cstmfld' or col == 'partdescription':
                 continue
             df[col] = df[col].astype(str).str.upper()
-        return df
-  
-    def find_ticket_type(self, df=None):
+        return df        
+        
+    def clean_dates (self):
+        '''
+        Changes the imported date values into MM/DD/YY strings
+        '''
+        col = self.df['datescheduledfulfillment']
+        for i in col.index:
+            date = datetime.strptime(col.at[i], '%Y-%m-%d %H:%M:%S.0')
+            date = datetime.strftime(date, '%y/%m/%d')
+            col.at[i] = date
+        self.df['datescheduledfulfillment'] = col
+        return self
+      
+    def find_ticket_types(self):
         '''
         Determines the type of ticket the row belongs to and adds the value to the "ticket" column.
         e.g. "WIP part" or "Assembly"
         '''
-        if df is None:
-            df=self.df
+        df=self.df
         for i in df.index:
             typeid = df.at[i, 'typeid']
             cat = df.at[i, 'cat']
@@ -111,7 +74,38 @@ class WOquery():
             if cat == "COMPLETE":
                 ticket = "COMPLETE"
             df.at[i,'ticket'] = ticket
-        return df
+        self.df=df
+        return self
+    
+    def extract_cstmfld(self, findstr, outputcol, readstr=r"[A-Z]*[a-z]*", uppercase=True, required=True):
+        '''
+        extracts a value from the cstmfld column and outputs it to another column
+        '''  
+        df=self.df
+        for i in df['cstmfld'].index:
+            result = re.search(r'(?<=' + f'{findstr}' + r')' + f'{readstr}', df.at[i, 'cstmfld'])
+            if result and uppercase:
+                df.at[i, outputcol] = result.group(0).upper()
+            elif result:
+                df.at[i, outputcol] = result.group(0)
+            elif required:
+                raise Exception('A necessary Fishbowl custom field is either unreadable or missing information.')
+        self.df=df
+        return self
+    
+    def sort_df(self, ticket=None):
+        '''  
+        sorts the dataframe based on the order needed for either WIP or ASSEMBLY tickets
+        '''  
+        if ticket == "WIP":
+            self.df.sort_values(by=['partdescription','bomitempart'], axis=0, ascending=True, inplace=True)
+        elif ticket == "ASSEMBLY":
+            self.df.sort_values(by=['wonum','datescheduledfulfillment'], axis=0, ascending=True, inplace=True)
+        else:
+            raise Exception("No sort method selected. You must chose either 'WIP' or 'ASSEMBLY'")
+        self.df.reset_index(drop=True, inplace=True)
+        return self
+
   
     def filter(self, typeid=None, category=None, processed=None, ticket=None, pn=None, wonum=None, df=None):
         '''
@@ -155,78 +149,33 @@ class WOquery():
         else: check_if_none(wonum)
         return df
     
-    def method_explained(self):
+    def get_ticket_info(self, ticket):
         '''
-        1. Select next row where processed=false and typeid = 10
-        2. Partnum becomes the "active" part.
-        3. determine the ticket type (WIP or ASSEMBLY)
-            If WIP:
-                FINISHED GOODS:
-                coalesce all rows with the same partnum where type=10 and cat=steel
-                note the woitemnum(s)
-                note qty per, sum qty totals
-                RAW GOODS:
-                coalesce all rows with the same woitemnum from before where type=20
-                note qty per, sum qty totals
-            If ASSEMBLY:
-                FINISHED GOODS:
-                coalesce all rows with the same partnum where type=10 and cat=weldment
-                note the woitemnum(s)
-                note qty per, sum qty totals
-                RAW GOODS:
-                coalesce all rows with the same woitemnum from before where type=20
-                note qty per, sum qty totals
-         5. Make header df by gathering:
-             all wonums from before     
-             earliest issue date
-             current inv
-             sum of all woitemtotals
-        6. save headerDF, finishedDF, and rawDF to a dictionary, df_dict
-        7. return this dictionary at the end of the func. access with df_dict['df_name']
-             
-        '''  
-        
-    def export_wip_info(self, df=None):
-        if df is None:
-            df = self.df
-        df = self.filter(processed=False, ticket="WIP", df=df) # filter dataframe down to unprocessed and WIP only
-        active_part = self.filter(typeid="F", df=df)['bomitempart'].iloc[0] # grabs the very first "finished goods" part from the filtered df
+        when called, this finds and returns all info needed to create a single kanban ticket and then marks those rows as processed=True
+        Ticket type can either be "WIP" or "ASSEMBLY"
+        '''
+        df = self.df
+        df = self.filter(processed=False, ticket=ticket, df=df) # filter by proccessed and tyicket type only
+        active_part = self.filter(typeid="F", df=df)['bomitempart'].iat[0] # grab the very first item
         fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
-        wonums = fgoods['wonum'].tolist() # create a list of all work order numbers for the active_part. used to find raw.
-        rgoods = self.filter(typeid="R", wonum=wonums, df=df) # raw goods dataframe. contains all raws for the wonums from active_part
-        wip_dict = {
+        wonums = fgoods['wonum'].tolist() # find all "finished good" instances of active_part
+        rgoods = self.filter(typeid="R", wonum=wonums, df=df) # find all the "raw good" instances for active_part
+        ticket_info = {
             "fgoods": fgoods,
             "rgoods": rgoods
         }
-        # now we mark the rows from above as processed=true in the original dataframe
-        for i in df['processed'].index:
+        for i in fgoods.index:
             self.df['processed'].at[i] = True
-        return wip_dict
-        
-    def export_assem_info(self):
-        if df is None:
-            df = self.df
-        df = self.filter(processed=False, ticket="ASSEMBLY", df=df) # filter dataframe down to unprocessed and WIP only
-        active_part = self.filter(typeid="F", df=df)['bomitempart'].iloc[0] # grabs the very first "finished goods" part from the filtered df
-        fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
-        wonums = fgoods['wonum'].tolist() # create a list of all work order numbers for the active_part. used to find raw.
-        rgoods = self.filter(typeid="R", wonum=wonums, df=df) # raw goods dataframe. contains all raws for the wonums from active_part
-        assem_dict = {
-            "fgoods": fgoods,
-            "rgoods": rgoods
-        }
-        # now we mark the rows from above as processed=true in the original dataframe
-        for i in df['processed'].index:
+        for i in rgoods.index:
             self.df['processed'].at[i] = True
-        return assem_dict
+        return ticket_info
 
-    def moreToBeProcessed(self, ticket=None, df=None):
+    def more_to_process(self, ticket):
         '''
         This method determines if there are more tickets of a certain type to be processed.
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
-        if df is None:
-            df=self.df
+        df=self.df
         if ticket == "WIP":
             df = self.filter(processed=False, ticket="WIP", df=df)
             if df.empty:
@@ -240,8 +189,10 @@ class WOquery():
             else:
                 return True
         else:
-            raise Exception('Cannot determine if there are more items to be processed. Check ticket type.')
+            raise Exception('Cannot determine if there are more items to be processed.')
         
+####################################################################################################    
+
 class Ticket():
     '''
     imports info needed for a single ticket. takes that info and formats it into a presentable PDF.
@@ -249,38 +200,57 @@ class Ticket():
     def __init__(self, tkt_dict):
         self.fgoods = tkt_dict["fgoods"]
         self.rgoods = tkt_dict["rgoods"]
+        self.header = None
+        self.gen_header()
         
     def gen_header(self):
-        header = {"part_num": self.fgoods['bomitempart'].iloc[0],
-            "part_desc": self.fgoods['partdescription'].iloc[0],
+        self.header = {"part_num": self.fgoods['bomitempart'].iat[0],
+            "part_desc": self.fgoods['partdescription'].iat[0],
             "wo_nums": self.fgoods['wonum'].tolist(),
             "total_qty": self.fgoods['woitemtotal'].sum(),
-            "earliest_date": self.fgoods['datescheduledfulfillment'].sort_values().iloc[0],
+            "earliest_date": self.reformat_date(self.fgoods['datescheduledfulfillment'].sort_values().iat[0]),
             # "ticket_type": "WIP"
         }
-    
-    def fgoods(self):
-        pass
-    
-    def rgoods(self):
-        pass
+        
+    def reformat_date (self, date):
+        '''
+        Change date values into MM/DD/YY
+        '''
+        date = datetime.strptime(date, '%y/%m/%d')
+        date = datetime.strftime(date, '%m/%d/%y')
+        return date
 
-# MAIN LOOP
-wo = WOquery('kanban query.csv')
-wo.sort_df(ticket="WIP")
-while True:
-    tkt = Ticket(wo.export_wip_info())
-    # tkt.make_page()
-    if not wo.moreToBeProcessed(ticket="WIP"):
-        break
-wo.sort_df(ticket="ASSEMBLY")
-while True:
-    tkt = Ticket(wo.export_assem_info())
-    # tkt.make_page()
-    if not wo.moreToBeProcessed(ticket="ASSEMBLY"):
-        break
+    def return_fgoods(self):
+        return self.fgoods
     
+    def return_rgoods(self):
+        return self.rgoods
+    
+####################################################################################################    
+    
+class Main():
+    def __init__(self, fileloc):
+        self.file = fileloc
+    
+    def make_packet(self, wo, ticket):
+        packet = None
+        while True:
+            if not wo.more_to_process(ticket=ticket):
+                break
+            tkt = Ticket(wo.get_ticket_info(ticket=ticket))
+            # tkt.makePDF() # make into a PDF page
+            # tkt.addpage(wip_packet, tkt.page) # add page to WIP packet
+        return packet
+    
+    def run(self):
+        start_time = time.time()
+        wo = WOquery(self.file)
+        self.make_packet(wo, "WIP")
+        self.make_packet(wo, "ASSEMBLY")
+        print("Process finished --- %s seconds ---" % (time.time() - start_time))
+        print('end')
+    
+
+m = Main('KANBAN QUERY.csv')
+m.run()
 print('end')
-print('end')
-
-
