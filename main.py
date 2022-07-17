@@ -105,7 +105,7 @@ class WOquery():
         if ticket == "WIP":
             self.df.sort_values(by=['partdescription','bomitempart'], axis=0, ascending=True, inplace=True)
         elif ticket == "ASSEMBLY":
-            self.df.sort_values(by=['datescheduledfulfillment','wonum'], axis=0, ascending=True, inplace=True)
+            self.df.sort_values(by=['datescheduledfulfillment', 'wonum'], axis=0, ascending=True, inplace=True)
         else:
             self.df.sort_values(by=['bomitempart', 'partdescription','datescheduledfulfillment','wonum'], axis=0, ascending=True, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
@@ -151,10 +151,7 @@ class WOquery():
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
         df = self.df
-        if self.extract_cats and ticket is not None:
-            df = self.filter(processed=False, ticket=ticket, df=df) # filter by proccessed and ticket type only
-        else:    
-            df = self.filter(processed=False, df=df)
+        df = self.filter(processed=False, ticket=ticket, df=df) # filter by proccessed and ticket type only
         active_part = self.filter(typeid="F", df=df)['bomitempart'].iat[0] # grab the very first item
         fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
         wonums = fgoods['wonum'].tolist() # find all "finished good" instances of active_part
@@ -178,24 +175,15 @@ class WOquery():
         if self.extract_cats and ticket is not None:
             if ticket == "WIP":
                 df = self.filter(processed=False, ticket="WIP", df=df)
-                if df.empty:
-                    return False
-                else:
-                    return True
+                return not df.empty
             elif ticket == "ASSEMBLY":
                 df = self.filter(processed=False, ticket="ASSEMBLY", df=df)
-                if df.empty:
-                    return False
-                else:
-                    return True
+                return not df.empty
             else:
                 raise Exception('Cannot determine if there are more items to be processed.')
         else:   
             df = self.filter(processed=False, df=df)
-            if df.empty:
-                return False
-            else:
-                return True
+            return not df.empty
             
 ####################################################################################################    
 
