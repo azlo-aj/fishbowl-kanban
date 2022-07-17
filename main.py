@@ -117,10 +117,6 @@ class WOquery():
         Returns a filtered version of a dataframe. "None" arguments change nothing. Otherwise, rows with column
         values that do not match those listed in the arguments are dropped from the returned dataframe.
         '''
-        def check_if_none(var):
-            if var is not None:
-                raise Exception(f"{var} is of the wrong data type")
-        
         if df is None:
             df = self.df
         if isinstance(typeid, int) or isinstance(typeid, str):
@@ -128,31 +124,25 @@ class WOquery():
                 df = df.loc[df['typeid'].astype(int) == 10]
             elif typeid == 20 or str(typeid.upper()) == "RAW" or str(typeid.upper()) == "R":
                 df = df.loc[df['typeid'].astype(int) == 20]
-        else: check_if_none(typeid)
         if isinstance(processed, bool):
             processed = [processed]
             df = df.loc[df['processed'].isin(processed)]
-        else: check_if_none(processed)
         if isinstance(pn, str):
             pn = [pn]
             df = df.loc[df['bomitempart'].isin(pn)]
-        else: check_if_none(pn)
         if isinstance(wonum, str) or isinstance(wonum, list):
             if isinstance(wonum, str):
                 wonum = [wonum]
             df = df.loc[df['wonum'].isin(wonum)]
-        else: check_if_none(wonum)
         if self.extract_cats:
             if isinstance(category, str) or isinstance(category, list):
                 if isinstance(category, str):
                     category = [category]
                 category = [val.upper() for val in category] # uppercases all items
                 df = df.loc[df['cat'].isin(category)]
-            else: check_if_none(category)
             if isinstance(ticket, str):
                 ticket = [ticket.upper()]
                 df = df.loc[df['ticket'].isin(ticket)]
-            else: check_if_none(ticket)
         return df
     
     def get_ticket_info(self, ticket=None):
