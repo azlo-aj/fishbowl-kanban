@@ -4,8 +4,9 @@ from datetime import datetime
 import time
 
 class WOquery():
-    def __init__(self, input_csv):
+    def __init__(self, input_csv, extract_cats=True):
         self.df = pd.read_csv(input_csv, encoding='latin-1', na_filter=False) # IMPORT FISHBOWL QUERY
+        self.extract_cats = extract_cats
         self.setup()
            
     def setup(self):
@@ -22,16 +23,20 @@ class WOquery():
         # DELETE UNNECESSARY COLUMNS
         self.df.drop(self.df.columns[self.df.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True, errors='ignore') # DROP BLANK COLS
         self.df.drop(columns=['bomitemdescription','itemname', 'bomitemid'], inplace=True, errors='ignore')
+        if not self.extract_cats:
+            self.df.drop(columns=['cstmfld'], inplace=True, errors='ignore')
         
         # CREATE SOME NEW COLUMNS
-        self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
-        self.df['ticket'] = None
+        if self.extract_cats:
+            self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
+            self.df['ticket'] = None
         self.df['processed'] = False # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
         
         # FILL NEW COLUMNS
-        findstr = '"name": "Category", "type": "Drop-Down List", "value": "'
-        self.extract_cstmfld(findstr, 'cat')
-        self.find_ticket_types()
+        if self.extract_cats:
+            findstr = '"name": "Category", "type": "Drop-Down List", "value": "'
+            self.extract_cstmfld(findstr, 'cat')
+            self.find_ticket_types()
 
     def uppercase_df(self, df=None):
         '''
@@ -100,9 +105,9 @@ class WOquery():
         if ticket == "WIP":
             self.df.sort_values(by=['partdescription','bomitempart'], axis=0, ascending=True, inplace=True)
         elif ticket == "ASSEMBLY":
-            self.df.sort_values(by=['wonum','datescheduledfulfillment'], axis=0, ascending=True, inplace=True)
+            self.df.sort_values(by=['datescheduledfulfillment','wonum'], axis=0, ascending=True, inplace=True)
         else:
-            raise Exception("No sort method selected. You must chose either 'WIP' or 'ASSEMBLY'")
+            self.df.sort_values(by=['bomitempart', 'partdescription','datescheduledfulfillment','wonum'], axis=0, ascending=True, inplace=True)
         self.df.reset_index(drop=True, inplace=True)
         return self
 
@@ -124,20 +129,10 @@ class WOquery():
             elif typeid == 20 or str(typeid.upper()) == "RAW" or str(typeid.upper()) == "R":
                 df = df.loc[df['typeid'].astype(int) == 20]
         else: check_if_none(typeid)
-        if isinstance(category, str) or isinstance(category, list):
-            if isinstance(category, str):
-                category = [category]
-            category = [val.upper() for val in category] # uppercases all items
-            df = df.loc[df['cat'].isin(category)]
-        else: check_if_none(category)
         if isinstance(processed, bool):
             processed = [processed]
             df = df.loc[df['processed'].isin(processed)]
         else: check_if_none(processed)
-        if isinstance(ticket, str):
-            ticket = [ticket.upper()]
-            df = df.loc[df['ticket'].isin(ticket)]
-        else: check_if_none(ticket)
         if isinstance(pn, str):
             pn = [pn]
             df = df.loc[df['bomitempart'].isin(pn)]
@@ -147,15 +142,29 @@ class WOquery():
                 wonum = [wonum]
             df = df.loc[df['wonum'].isin(wonum)]
         else: check_if_none(wonum)
+        if self.extract_cats:
+            if isinstance(category, str) or isinstance(category, list):
+                if isinstance(category, str):
+                    category = [category]
+                category = [val.upper() for val in category] # uppercases all items
+                df = df.loc[df['cat'].isin(category)]
+            else: check_if_none(category)
+            if isinstance(ticket, str):
+                ticket = [ticket.upper()]
+                df = df.loc[df['ticket'].isin(ticket)]
+            else: check_if_none(ticket)
         return df
     
-    def get_ticket_info(self, ticket):
+    def get_ticket_info(self, ticket=None):
         '''
         when called, this finds and returns all info needed to create a single kanban ticket and then marks those rows as processed=True
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
         df = self.df
-        df = self.filter(processed=False, ticket=ticket, df=df) # filter by proccessed and tyicket type only
+        if self.extract_cats and ticket is not None:
+            df = self.filter(processed=False, ticket=ticket, df=df) # filter by proccessed and ticket type only
+        else:    
+            df = self.filter(processed=False, df=df)
         active_part = self.filter(typeid="F", df=df)['bomitempart'].iat[0] # grab the very first item
         fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
         wonums = fgoods['wonum'].tolist() # find all "finished good" instances of active_part
@@ -170,27 +179,34 @@ class WOquery():
             self.df['processed'].at[i] = True
         return ticket_info
 
-    def more_to_process(self, ticket):
+    def more_to_process(self, ticket=None):
         '''
         This method determines if there are more tickets of a certain type to be processed.
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
         df=self.df
-        if ticket == "WIP":
-            df = self.filter(processed=False, ticket="WIP", df=df)
+        if self.extract_cats and ticket is not None:
+            if ticket == "WIP":
+                df = self.filter(processed=False, ticket="WIP", df=df)
+                if df.empty:
+                    return False
+                else:
+                    return True
+            elif ticket == "ASSEMBLY":
+                df = self.filter(processed=False, ticket="ASSEMBLY", df=df)
+                if df.empty:
+                    return False
+                else:
+                    return True
+            else:
+                raise Exception('Cannot determine if there are more items to be processed.')
+        else:   
+            df = self.filter(processed=False, df=df)
             if df.empty:
                 return False
             else:
                 return True
-        elif ticket == "ASSEMBLY":
-            df = self.filter(processed=False, ticket="ASSEMBLY", df=df)
-            if df.empty:
-                return False
-            else:
-                return True
-        else:
-            raise Exception('Cannot determine if there are more items to be processed.')
-        
+            
 ####################################################################################################    
 
 class Ticket():
@@ -229,11 +245,13 @@ class Ticket():
 ####################################################################################################    
     
 class KanbanTicketer():
-    def __init__(self, fileloc):
+    def __init__(self, fileloc, separate=True):
         self.file = fileloc
+        self.separate = separate # separate into "WIP" and "ASSEMBLY" tickets. Requires properly configured cf-category in Fishbowl
     
-    def make_packet(self, wo, ticket):
+    def make_packet(self, wo, ticket=None):
         packet = None
+        wo.sort_df(ticket=ticket)
         while True:
             if not wo.more_to_process(ticket=ticket):
                 break
@@ -241,15 +259,18 @@ class KanbanTicketer():
             # tkt.makePDF() # make into a PDF page
             # tkt.addpage(packet, tkt.page) # add page to packet
         return packet
-    
+
     def run(self):
         start_time = time.time()
-        wo = WOquery(self.file)
-        self.make_packet(wo, "WIP")
-        self.make_packet(wo, "ASSEMBLY")
+        wo = WOquery(self.file, )
+        if self.separate:
+            self.make_packet(wo, "WIP")
+            self.make_packet(wo, "ASSEMBLY")
+        else:
+            self.make_packet(wo)
         print("Process finished --- %s seconds ---" % (time.time() - start_time))
 
 
-k = KanbanTicketer('KANBAN QUERY.csv')
+k = KanbanTicketer('KANBAN QUERY.csv', separate=True)
 k.run()
 print('end')
