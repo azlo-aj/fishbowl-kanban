@@ -249,28 +249,28 @@ class KanbanTicketer():
         self.file = fileloc
         self.separate = separate # separate into "WIP" and "ASSEMBLY" tickets. Requires properly configured cf-category in Fishbowl
     
-    def make_packet(self, wo, ticket=None):
+    def make_packet(self, query, ticket=None):
         packet = None
-        wo.sort_df(ticket=ticket)
+        query.sort_df(ticket=ticket)
         while True:
-            if not wo.more_to_process(ticket=ticket):
+            if not query.more_to_process(ticket=ticket):
                 break
-            tkt = Ticket(wo.get_ticket_info(ticket=ticket))
+            tkt = Ticket(query.get_ticket_info(ticket=ticket))
             # tkt.makePDF() # make into a PDF page
             # tkt.addpage(packet, tkt.page) # add page to packet
         return packet
 
     def run(self):
         start_time = time.time()
-        wo = WOquery(self.file, )
+        query = WOquery(self.file, self.separate)
         if self.separate:
-            self.make_packet(wo, "WIP")
-            self.make_packet(wo, "ASSEMBLY")
+            self.make_packet(query, "WIP")
+            self.make_packet(query, "ASSEMBLY")
         else:
-            self.make_packet(wo)
+            self.make_packet(query)
         print("Process finished --- %s seconds ---" % (time.time() - start_time))
 
 
-k = KanbanTicketer('KANBAN QUERY.csv', separate=True)
+k = KanbanTicketer('KANBAN QUERY.csv')
 k.run()
 print('end')
