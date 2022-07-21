@@ -1,16 +1,17 @@
 from re import M
+from textwrap import fill
 from borb.pdf.document.document import Document
 from borb.pdf.page.page import Page
 from borb.pdf.canvas.layout.text.paragraph import Paragraph
 from borb.pdf.pdf import PDF
 from borb.pdf.canvas.geometry.rectangle import Rectangle
 from borb.pdf.canvas.layout.layout_element import Alignment
+from borb.pdf.page.page_size import PageSize
 from borb.pdf.canvas.layout.annotation.square_annotation import SquareAnnotation
 from borb.pdf.canvas.color.color import X11Color, HexColor
 from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
 from borb.pdf.canvas.layout.page_layout.multi_column_layout import SingleColumnLayout
 from borb.pdf.canvas.layout.page_layout.page_layout import PageLayout
-# from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
 from borb.pdf.canvas.layout.table.table import TableCell
 # from table import *
 
@@ -23,18 +24,20 @@ draw_border=False
 
 def main():
 
+    letter_width: Decimal = PageSize.LETTER_PORTRAIT.value[0]
+    letter_height: Decimal = PageSize.LETTER_PORTRAIT.value[1]
+    
     # create Document
     doc: Document = Document()
-
-    # create Page
-    page: Page = Page()
-
-    # add Page to Document
+    page: Page = Page(letter_width, letter_height)
     doc.add_page(page)
+    
+    
+    
     
     # define the margin/padding
     m: Decimal = Decimal(5)
-
+    rgoods_row_padding = Decimal(8)
 
     
 #------------------------ INPUT VARS ------------------------------#
@@ -169,8 +172,8 @@ def main():
     # HEADER RECTANGLE
     header_container: Rectangle = Rectangle(
         Decimal(59),                # x: 0 + page_margin
-        Decimal(848 - 84 - 100),    # y: page_height - page_margin - height_of_textbox
-        Decimal(595 - 59 * 2),      # width: page_width - 2 * page_margin
+        Decimal(792 - 59 - 100),    # y: page_height - page_margin - height_of_textbox
+        Decimal(612 - 59 * 2),      # width: page_width - 2 * page_margin
         Decimal(100),               # height
     )
     # fmt: on
@@ -181,23 +184,6 @@ def main():
 
 ############################ RAW GOODS ######################################################################################################
 #------------------------ RAW GOODS ------------------------------#
-
-    # def make_raw_goods_table(*rgoods):
-    #     num_of_rows = len(rgoods)
-        
-    #     raw_goods_rows = FixedColumnWidthTable(
-    #             number_of_columns=2,
-    #             number_of_rows=num_of_rows,
-    #             # adjust the ratios of column widths for this FixedColumnWidthTable
-    #             column_widths=[Decimal(1)],
-    #             background_color=HexColor("D9D9D9")
-    #             ) \
-    #     .add(Paragraph("RAW GOODS", font="Helvetica-Bold", horizontal_alignment=Alignment.CENTERED)) \
-    #     .set_padding_on_all_cells(Decimal(0), Decimal(0), m, Decimal(0)) \
-    #     .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
-    
-    # def add_row (obj):
-    #     return obj.add(row_info)
     
     # INVENTORY QTY
     raw_good_entry = Paragraph(
@@ -209,13 +195,24 @@ def main():
         font_size=Decimal(12)
     )
     # QTY PER & QTY TOTAL
-    qty_per_total = FixedColumnWidthTable(
+    qty_inv_per_total = FixedColumnWidthTable(
             number_of_columns=2,
             number_of_rows=1,
             column_widths=[Decimal(1),Decimal(1)],
             ) \
     .add(Paragraph("PER: 0", horizontal_alignment=Alignment.LEFT)) \
     .add(Paragraph("TOTAL: 0", horizontal_alignment=Alignment.RIGHT)) \
+    .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+    .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+    
+    # QTY PER & QTY TOTAL
+    inv_and_scrapped = FixedColumnWidthTable(
+            number_of_columns=2,
+            number_of_rows=1,
+            column_widths=[Decimal(1),Decimal(1)],
+            ) \
+    .add(Paragraph("STOCK: 0", horizontal_alignment=Alignment.LEFT)) \
+    .add(Paragraph("SCRAP: ____", horizontal_alignment=Alignment.RIGHT)) \
     .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
     .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
     
@@ -226,10 +223,10 @@ def main():
             column_widths=[Decimal(2),Decimal(1)],
             ) \
     .add(Paragraph("RAW GOOD NUMBER", font="Helvetica-Bold")) \
-    .add(qty_per_total) \
+    .add(qty_inv_per_total) \
     .add(Paragraph("RAW GOOD DESCRIPTION")) \
-    .add(Paragraph("SCRAPPED: ____________")) \
-    .set_padding_on_all_cells(Decimal(0), Decimal(0), m, Decimal(0)) \
+    .add(inv_and_scrapped) \
+    .set_padding_on_all_cells(Decimal(0), Decimal(0), m/2, Decimal(0)) \
     .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
     
     # SETS UP ROWS - EACH ROW CONTAINS INFO FOR A RAW GOOD
@@ -237,6 +234,7 @@ def main():
             number_of_columns=1,
             number_of_rows=10,
             column_widths=[Decimal(1)],
+            margin_top=None,
             ) \
     .add(line_item) \
         .add(line_item) \
@@ -248,9 +246,40 @@ def main():
                                 .add(line_item) \
                                     .add(line_item) \
                                         .add(line_item) \
-    .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(8), Decimal(0)) \
-    .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+    .set_padding_on_all_cells(rgoods_row_padding/2, Decimal(0), rgoods_row_padding/2, Decimal(0)) \
+    .set_borders_on_all_cells(True, draw_border, draw_border, draw_border) \
+    .set_border_color_on_all_cells(HexColor("EBEBEB"))    
+       
+        
+    def add_row(table, obj_info):
+        return table.add(obj_info)
+    
+    def close_table(table):
+        return  table.set_padding_on_all_cells(rgoods_row_padding/2, Decimal(0), rgoods_row_padding/2, Decimal(0)) \
+                .set_borders_on_all_cells(True, draw_border, draw_border, draw_border) \
+                .set_border_color_on_all_cells(HexColor("EBEBEB")) 
 
+    def fill_blank_rows(table):
+        return table.add(TableCell(Paragraph("Null", font_color=HexColor("FFFFFF")), border_color= HexColor("FFFFFF")))
+    
+    def gen_rgoods(rgoods_df, page):
+        num_of_rows = len(rgoods_df.index)
+        
+        rgoods_table = raw_good_rows
+        
+        if num_of_rows < 11:
+            for i in rgoods_df.index:
+                rgoods_table = add_row(rgoods_table, rgoods_df.iloc[i])
+            rgoods_table = close_table(rgoods_table)
+            for num in range(0, 10 - num_of_rows):
+                rgoods_table = fill_blank_rows(rgoods_table)
+            return rgoods_table
+        elif num_of_rows > 10 and num_of_rows < 21:
+            for i in range(0, 11):
+                rgoods_table = add_row(rgoods_table, rgoods_df.iloc[i])
+            rgoods_df.drop(index=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9], inplace=True).reset_index(inplace=True)
+            
+        
 
     # RAW GOODS TITLE BAR
     raw_goods_bar = FixedColumnWidthTable(
@@ -284,8 +313,8 @@ def main():
     raw_goods_container: Rectangle = Rectangle(
         Decimal(59),                            # x: 0 + page_margin
         Decimal(84 + 50),                      # y: bottom page margin + height of footer
-        Decimal(595 - 59 * 2),                  # width: page_width - 2 * page_margin
-        Decimal((848 - 84 - 100) - (85+50)),   # height: bottom of header container - top of footer
+        Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
+        Decimal((792 - 59 - 100) - (85+50)),   # height: bottom of header container - top of footer
     )
     # fmt: on
     # page.add_annotation(SquareAnnotation(raw_goods_container, stroke_color=HexColor("#ff0000")))
@@ -337,7 +366,7 @@ def main():
     footer_container: Rectangle = Rectangle(
         Decimal(59),                            # x: 0 + page_margin
         Decimal(84),                            # y: bottom page margin
-        Decimal(595 - 59 * 2),                  # width: page_width - 2 * page_margin
+        Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
         Decimal(50),                               # height: bottom of header container - top of footer
     )
     # fmt: on

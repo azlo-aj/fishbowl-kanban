@@ -145,6 +145,48 @@ class WOquery():
                 df = df.loc[df['ticket'].isin(ticket)]
         return df
     
+
+
+    def format_fgoods(self, df):
+        '''
+        Returns a dictionary that gives info needed to fill out the header of a part's ticket/PDF page
+        '''
+        
+        def reformat_date (date):
+            '''
+            Change date values into MM/DD/YY
+            '''
+            date = datetime.strptime(date, '%y/%m/%d')
+            date = datetime.strftime(date, '%m/%d/%y')
+            return date
+        
+        fg = { "part_num": df['bomitempart'].iat[0],
+                    "description": df['partdescription'].iat[0],
+                    "wo_nums": df['wonum'].tolist(),
+                    "total_qty": df['woitemtotal'].sum(),
+                    "earliest_date": reformat_date(df['datescheduledfulfillment'].sort_values().iat[0]),
+                    "inventory": df['invqty'].iat[0],
+                    # "ticket_type": "WIP"
+        }
+        return fg
+    
+    def format_rgoods(self, df):
+        '''
+        input argument is a DF comprised of all raw goods for a specific finished good from the master DF
+        Coalesces the information and any duplicate rows into just one row per part
+        Returns a dataframe in which each row represents a raw-good line item on that ticket/PDF page
+        '''
+        rg = pd.DataFrame(columns=["part_num", "description", "per", "total", "inventory"])
+        rg['part_num'] = pd.Series(df['bomitempart'].unique())
+        for i in rg['part_num'].index:
+            pn = rg['part_num'].at[i]
+            rg.at[i, 'description'] = df.loc[df['bomitempart'] == pn, 'partdescription'].iat[0]
+            rg.at[i, 'per'] = df.loc[df['bomitempart'] == pn, 'woitemqty'].iat[0]
+            rg.at[i, 'total'] = df.loc[df['bomitempart'] == pn, 'woitemtotal'].sum()
+            rg.at[i, "inventory"] = df.loc[df['bomitempart'] == pn, 'invqty'].iat[0]
+        rg.drop(columns=['index'], inplace=True, errors='ignore')
+        return rg
+    
     def get_ticket_info(self, ticket=None):
         '''
         when called, this finds and returns all info needed to create a single kanban ticket and then marks those rows as processed=True
@@ -156,14 +198,19 @@ class WOquery():
         fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
         wonums = fgoods['wonum'].tolist() # find all "finished good" instances of active_part
         rgoods = self.filter(typeid="R", wonum=wonums, df=df) # find all the "raw good" instances for active_part
-        ticket_info = {
-            "fgoods": fgoods,
-            "rgoods": rgoods
-        }
+        
         for i in fgoods.index:
             self.df['processed'].at[i] = True
         for i in rgoods.index:
             self.df['processed'].at[i] = True
+            
+        fgoods = self.format_fgoods(fgoods)
+        rgoods = self.format_rgoods(rgoods)
+        
+        ticket_info = {
+            "fgoods": fgoods,
+            "rgoods": rgoods
+        }    
         return ticket_info
 
     def more_to_process(self, ticket=None):
@@ -194,31 +241,9 @@ class Ticket():
     def __init__(self, tkt_dict):
         self.fgoods = tkt_dict["fgoods"]
         self.rgoods = tkt_dict["rgoods"]
-        self.header = None
-        self.gen_header()
         
-    def gen_header(self):
-        self.header = {"part_num": self.fgoods['bomitempart'].iat[0],
-            "part_desc": self.fgoods['partdescription'].iat[0],
-            "wo_nums": self.fgoods['wonum'].tolist(),
-            "total_qty": self.fgoods['woitemtotal'].sum(),
-            "earliest_date": self.reformat_date(self.fgoods['datescheduledfulfillment'].sort_values().iat[0]),
-            # "ticket_type": "WIP"
-        }
-        
-    def reformat_date (self, date):
-        '''
-        Change date values into MM/DD/YY
-        '''
-        date = datetime.strptime(date, '%y/%m/%d')
-        date = datetime.strftime(date, '%m/%d/%y')
-        return date
+   
 
-    def return_fgoods(self):
-        return self.fgoods
-    
-    def return_rgoods(self):
-        return self.rgoods
     
 ####################################################################################################    
     
