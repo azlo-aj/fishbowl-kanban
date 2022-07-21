@@ -134,11 +134,11 @@ def main():
             number_of_columns=1,
             number_of_rows=1,
             column_widths=[Decimal(1)],
-            # background_color=HexColor("#86CD82")
+            background_color=HexColor("EBEBEB")
             ) \
     .add(header_divider) \
     .set_padding_on_all_cells(Decimal(5), Decimal(5), Decimal(5), Decimal(5)) \
-    .set_borders_on_all_cells(True, True, True, True) 
+    .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
     
     # SUB HEADER
     sub_header = FixedColumnWidthTable(
@@ -159,7 +159,7 @@ def main():
             column_widths=[Decimal(1)],
             # background_color=HexColor("#86CD82")
             ) \
-    .add(TableCell(top_header, border_radius_top_left=Decimal(50), border_color=HexColor("#ff0000"), border_width=Decimal(3))) \
+    .add(top_header) \
     .add(sub_header) \
     .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
     .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
@@ -174,7 +174,7 @@ def main():
         Decimal(100),               # height
     )
     # fmt: on
-    page.add_annotation(SquareAnnotation(header_container, stroke_color=HexColor("#ff0000")))
+    # page.add_annotation(SquareAnnotation(header_container, stroke_color=HexColor("#ff0000")))
     
     header.layout(page, header_container)
 
@@ -208,17 +208,27 @@ def main():
         horizontal_alignment=Alignment.RIGHT,
         font_size=Decimal(12)
     )
+    # QTY PER & QTY TOTAL
+    qty_per_total = FixedColumnWidthTable(
+            number_of_columns=2,
+            number_of_rows=1,
+            column_widths=[Decimal(1),Decimal(1)],
+            ) \
+    .add(Paragraph("PER: 0", horizontal_alignment=Alignment.LEFT)) \
+    .add(Paragraph("TOTAL: 0", horizontal_alignment=Alignment.RIGHT)) \
+    .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+    .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
     
-    # SETS UP AN ENTRY - CONTAINS 4 CELLS TO DESCRIBE PART INFO
+    # SETS UP A LINE ITEM - CONTAINS 4 CELLS TO DESCRIBE PART INFO
     line_item = FixedColumnWidthTable(
             number_of_columns=2,
             number_of_rows=2,
             column_widths=[Decimal(2),Decimal(1)],
             ) \
-    .add(Paragraph("RAW GOOD NUMBER")) \
-    .add(Paragraph("RAW GOOD QTY")) \
+    .add(Paragraph("RAW GOOD NUMBER", font="Helvetica-Bold")) \
+    .add(qty_per_total) \
     .add(Paragraph("RAW GOOD DESCRIPTION")) \
-    .add(Paragraph("SCRAPPED")) \
+    .add(Paragraph("SCRAPPED: ____________")) \
     .set_padding_on_all_cells(Decimal(0), Decimal(0), m, Decimal(0)) \
     .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
     
@@ -248,7 +258,7 @@ def main():
             number_of_rows=1,
             # adjust the ratios of column widths for this FixedColumnWidthTable
             column_widths=[Decimal(1)],
-            background_color=HexColor("D9D9D9")
+            background_color=HexColor("EBEBEB")
             ) \
     .add(Paragraph("RAW GOODS", font="Helvetica-Bold", horizontal_alignment=Alignment.CENTERED)) \
     .set_padding_on_all_cells(Decimal(0), Decimal(0), m, Decimal(0)) \
@@ -297,7 +307,7 @@ def main():
     
     # PAGE COUNTER
     page_counter = Paragraph(
-            "Page: " + "1" + " of " + "1",
+            "Page " + "1" + " of " + "1",
             margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
             padding_top=m, padding_left=0, padding_bottom=0, padding_right=0,
             font="Helvetica",
