@@ -1,4 +1,5 @@
 from decimal import Decimal
+from tracemalloc import start
 # from operator import inv
 # from re import M
 # from textwrap import fill
@@ -36,7 +37,7 @@ class Ticket():
         letter_height: Decimal = PageSize.LETTER_PORTRAIT.value[1]
         self.doc: Document = Document()
         
-        self.raws = None
+        self.raws = []
         self.page = []
         self.split_rgood()
         for x in range(0, len(self.raws)):
@@ -46,8 +47,10 @@ class Ticket():
     @staticmethod
     def num_to_str(num, place=1):
         '''
-        turns int/float into a string with a more appropriate decimal precision
+        turns int/float into a string with an appropriate decimal precision
         '''
+        if num < .01:
+            num += 0.01
         if place==1:
             num = "{:.1f}".format(num)
             num = num.replace('.0','')
@@ -62,28 +65,19 @@ class Ticket():
         '''
         only 10 raw good items can fit per page.
         if there are more than 10 items, this splits the dataframe every 10 rows
-        each dataframe section is added to a list
+        each dataframe section is added to a list self.raws
         '''
         rg = self.rgood
         num_of_rows = len(rg.index)
-        
-        #blank DF used for oversized list of raws
-        too_many = pd.DataFrame(columns=rg.columns)
-        too_many.loc[0] = "N/A"
-        
-        if num_of_rows < 11:
-            self.raws = [rg.iloc[0:]]
-            
-        elif num_of_rows < 21 and num_of_rows > 10:
-            self.raws = [rg.iloc[0:10], rg.iloc[11:]]
-
-        elif num_of_rows < 31 and num_of_rows > 20:
-            self.raws = [rg.iloc[0:10], rg.iloc[11:20], rg.iloc[21:]]
-        
-        elif num_of_rows < 41 and num_of_rows > 31:
-            self.raws = [rg.iloc[0:10], rg.iloc[10:20], rg.iloc[21:30], rg.iloc[31:40]]
-        else:
-            self.raws = [too_many]
+        start_pos = 0
+        while start_pos < num_of_rows:
+            if start_pos >= num_of_rows:
+                break
+            end_pos = start_pos + 10
+            print(start_pos)
+            print(end_pos)
+            self.raws += [rg.iloc[start_pos:end_pos]]
+            start_pos += 11
      
     def generate_header(self, n):
         '''

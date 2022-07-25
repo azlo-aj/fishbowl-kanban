@@ -9,11 +9,9 @@ class KanbanTicketer():
         self.file = fileloc
         self.separate = separate # separate into "WIP" and "ASSEMBLY" tickets. Requires properly configured cf-category in Fishbowl
         self.position = 0
-        
-
-
+    
     def print_current_progress(self, query):
-        total = query.get_total_num_of_docs()
+        total = query.get_num_of_fgoods()
         progress = self.position / total
         print(f"Progress: {self.position} / {total} (" + "{:.2f}".format(progress) + ")")
         
@@ -45,7 +43,7 @@ class KanbanTicketer():
     def run(self):
         start_time = time.time()
         query = WOquery(self.file, self.separate)
-        total = query.get_total_num_of_docs()
+        total = query.get_num_of_fgoods()
         print(f"There are {total} parts")
         if self.separate:
             self.make_packet(query, "WIP")
@@ -53,7 +51,6 @@ class KanbanTicketer():
         else:
             self.make_packet(query)
         print("Process finished --- %s seconds ---" % (time.time() - start_time))
-
 
 k = KanbanTicketer('KANBAN QUERY.csv')
 k.run()

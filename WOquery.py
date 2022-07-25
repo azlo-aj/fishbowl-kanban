@@ -233,7 +233,7 @@ class WOquery():
             df = self.filter(processed=False, df=df)
             return not df.empty
         
-    def get_total_num_of_docs(self):
+    def get_num_of_fgoods(self):
         '''
         One document is made per unique finished good. 
         This method returns how many documents will be needed for the imported data.
@@ -242,5 +242,3 @@ class WOquery():
         s = pd.Series(df['bomitempart'].unique())
         num_of_items = len(s.index)
         return num_of_items
-        
-        
