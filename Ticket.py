@@ -238,7 +238,7 @@ class Ticket():
         # fmt: on
         # page.add_annotation(SquareAnnotation(header_container, stroke_color=HexColor("#ff0000")))
         
-        print(self.fgood['part_num'])
+        
         header.layout(self.page[n], header_container) 
         
     def generate_body(self, n):
@@ -264,7 +264,7 @@ class Ticket():
             .add(Paragraph("PER: " + self.num_to_str(df.at[i, 'per'], 2), \
                 horizontal_alignment=Alignment.LEFT)) \
             .add(Paragraph("TOTAL: " + self.num_to_str(df.at[i, 'total'], 2), \
-                horizontal_alignment=Alignment.RIGHT)) \
+                horizontal_alignment=Alignment.RIGHT, font="Helvetica-Bold")) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
             .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
             return qty_inv_per_total
@@ -361,8 +361,8 @@ class Ticket():
         num_of_pages = len(self.raws)
         
         def handle_sign_off(n):
-            if not n+1 == num_of_pages:
-                return Paragraph("none")
+            if not n == 0:
+                return Paragraph("Null", font_color=HexColor("FFFFFF"))
             sign = Paragraph(
                     "FINISHED BY: _____________________________________________",
                     margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
@@ -406,12 +406,10 @@ class Ticket():
         # fmt: on
         # page.add_annotation(SquareAnnotation(footer_container, stroke_color=HexColor("#ff0000")))
         footer.layout(self.page[n], footer_container)     
-    
-    def make_PDF(self, pdf_dir):
+
+    def make_PDF(self):
         for n in range(0,len(self.raws)):
             self.generate_header(n)
             self.generate_body(n)
             self.generate_footer(n)
-        pdf_path = pdf_dir + "output.pdf"
-        with open(pdf_path, "wb") as pdf_file_handle:
-            PDF.dumps(pdf_file_handle, self.doc)
+        return self.doc
