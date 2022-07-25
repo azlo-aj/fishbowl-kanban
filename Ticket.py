@@ -1,5 +1,7 @@
-from re import M
-from textwrap import fill
+from decimal import Decimal
+# from operator import inv
+# from re import M
+# from textwrap import fill
 from borb.pdf.document.document import Document
 from borb.pdf.page.page import Page
 from borb.pdf.canvas.layout.text.paragraph import Paragraph
@@ -8,13 +10,17 @@ from borb.pdf.canvas.geometry.rectangle import Rectangle
 from borb.pdf.canvas.layout.layout_element import Alignment
 from borb.pdf.page.page_size import PageSize
 from borb.pdf.canvas.layout.annotation.square_annotation import SquareAnnotation
-from borb.pdf.canvas.color.color import X11Color, HexColor
-from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
-from borb.pdf.canvas.layout.page_layout.multi_column_layout import SingleColumnLayout
-from borb.pdf.canvas.layout.page_layout.page_layout import PageLayout
-from borb.pdf.canvas.layout.table.table import TableCell
-from decimal import Decimal
+# from borb.pdf.canvas.color.color import X11Color, HexColor
+# from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
+from borb_modified.table import *
+from borb_modified.fixed_column_width_table import FixedColumnWidthTable
+# from borb.pdf.canvas.layout.page_layout.multi_column_layout import SingleColumnLayout
+# from borb.pdf.canvas.layout.page_layout.page_layout import PageLayout
+# from borb.pdf.canvas.layout.table.table import TableCell as TCborb
 import pandas as pd
+# from borb_modified.table import TableCell as TCedit
+
+
 
 draw_border=False
 m: Decimal = Decimal(5)
@@ -26,17 +32,33 @@ class Ticket():
         self.rgood = ticket_info['rgoods']
         self.wip = wip
         
-        
         letter_width: Decimal = PageSize.LETTER_PORTRAIT.value[0]
         letter_height: Decimal = PageSize.LETTER_PORTRAIT.value[1]
         self.doc: Document = Document()
         
         self.raws = None
-        self.split_rgoods()
-        for n in self.raw:
+        self.page = []
+        self.split_rgood()
+        for x in range(0, len(self.raws)):
             self.page += [Page(letter_width, letter_height)]
-        
-    def split_rgoods(self):
+            self.doc.add_page(self.page[x])
+            
+    @staticmethod
+    def num_to_str(num, place=1):
+        '''
+        turns int/float into a string with a more appropriate decimal precision
+        '''
+        if place==1:
+            num = "{:.1f}".format(num)
+            num = num.replace('.0','')
+        elif place==2:
+            num = "{:.2f}".format(num)
+            num = num.replace('.00','')
+        else:
+            num = str(num)
+        return num
+            
+    def split_rgood(self):
         '''
         only 10 raw good items can fit per page.
         if there are more than 10 items, this splits the dataframe every 10 rows
@@ -45,24 +67,25 @@ class Ticket():
         rg = self.rgood
         num_of_rows = len(rg.index)
         
+        #blank DF used for oversized list of raws
         too_many = pd.DataFrame(columns=rg.columns)
-        too_many.iloc[0] = "N/A"
+        too_many.loc[0] = "N/A"
         
         if num_of_rows < 11:
             self.raws = [rg.iloc[0:]]
             
-        if num_of_rows < 21 and num_of_rows > 10:
-            self.raws = [rg.iloc[0:9], rg.iloc[10:]]
+        elif num_of_rows < 21 and num_of_rows > 10:
+            self.raws = [rg.iloc[0:10], rg.iloc[11:]]
 
-        if num_of_rows < 31 and num_of_rows > 20:
-            self.raws = [rg.iloc[0:9], rg.iloc[10:19], rg.iloc[20:]]
+        elif num_of_rows < 31 and num_of_rows > 20:
+            self.raws = [rg.iloc[0:10], rg.iloc[11:20], rg.iloc[21:]]
         
-        if num_of_rows < 41 and num_of_rows > 31:
-            self.raws = [rg.iloc[0:9], rg.iloc[10:19], rg.iloc[20:29], rg.iloc[30:39]]
+        elif num_of_rows < 41 and num_of_rows > 31:
+            self.raws = [rg.iloc[0:10], rg.iloc[10:20], rg.iloc[21:30], rg.iloc[31:40]]
         else:
             self.raws = [too_many]
      
-    def generate_header(self):
+    def generate_header(self, n):
         '''
         creates header that goes on page 1 of *
         '''
@@ -73,6 +96,15 @@ class Ticket():
             padding_top=0, padding_left=0, padding_bottom=m, padding_right=0,
             font="Helvetica-Bold",
             # vertical_alignment=Alignment.TOP,
+            font_size=Decimal(24)
+        )
+        # PART NUMBER (if not first page)
+        header_pn_cont = Paragraph(
+            self.fgood['part_num'] + " (cont)",
+            margin_top=m, margin_left=m, margin_bottom=m, margin_right=m,
+            padding_top=0, padding_left=0, padding_bottom=m, padding_right=0,
+            font="Helvetica-Bold",
+            # vertical_alignment=Alignment.CENTERED,
             font_size=Decimal(24)
         )
         # PART DESCRIPTION
@@ -94,7 +126,7 @@ class Ticket():
         )
         # TOTAL QTY
         header_qty = Paragraph(
-            str(self.fgood['inventory']),
+            self.num_to_str(self.fgood['total_qty']),
             margin_top=m, margin_left=m, margin_bottom=m, margin_right=m,
             padding_top=0, padding_left=0, padding_bottom=m, padding_right=0,
             horizontal_alignment=Alignment.RIGHT,
@@ -103,7 +135,7 @@ class Ticket():
         )
         # INVENTORY QTY
         subheader_qtyinv = Paragraph(
-            "Inventory: " + str(self.fgood['inventory']),
+            "Inventory: " + self.num_to_str(self.fgood['inventory']),
             margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
             padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
             font="Helvetica",
@@ -170,17 +202,29 @@ class Ticket():
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
         .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
         
-        # HEADER
-        header = FixedColumnWidthTable(
-                number_of_columns=1,
-                number_of_rows=2,
-                column_widths=[Decimal(1)],
-                # background_color=HexColor("#86CD82")
-                ) \
-        .add(top_header) \
-        .add(sub_header) \
-        .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        if n == 0:
+            # HEADER
+            header = FixedColumnWidthTable(
+                    number_of_columns=1,
+                    number_of_rows=2,
+                    column_widths=[Decimal(1)],
+                    # background_color=HexColor("#86CD82")
+                    ) \
+            .add(top_header) \
+            .add(sub_header) \
+            .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+        else:
+            header = FixedColumnWidthTable(
+                    number_of_columns=1,
+                    number_of_rows=2,
+                    column_widths=[Decimal(1)],
+                    # background_color=HexColor("#86CD82")
+                    ) \
+            .add(header_pn_cont) \
+            .add(sub_header) \
+            .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
         
     #------------------------ HEADER CONTAINER ------------------------------#
 
@@ -194,7 +238,8 @@ class Ticket():
         # fmt: on
         # page.add_annotation(SquareAnnotation(header_container, stroke_color=HexColor("#ff0000")))
         
-        header.layout(self.page[0], header_container) 
+        print(self.fgood['part_num'])
+        header.layout(self.page[n], header_container) 
         
     def generate_body(self, n):
 
@@ -216,10 +261,13 @@ class Ticket():
                     number_of_rows=1,
                     column_widths=[Decimal(1),Decimal(1)],
                     ) \
-            .add(Paragraph("PER: 0", horizontal_alignment=Alignment.LEFT)) \
-            .add(Paragraph("TOTAL: 0", horizontal_alignment=Alignment.RIGHT)) \
+            .add(Paragraph("PER: " + self.num_to_str(df.at[i, 'per'], 2), \
+                horizontal_alignment=Alignment.LEFT)) \
+            .add(Paragraph("TOTAL: " + self.num_to_str(df.at[i, 'total'], 2), \
+                horizontal_alignment=Alignment.RIGHT)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            return qty_inv_per_total
         
         def tbl_inv_scrapped(i, df):
             # INVENTORY AND SCRAPPED
@@ -228,10 +276,12 @@ class Ticket():
                     number_of_rows=1,
                     column_widths=[Decimal(1),Decimal(1)],
                     ) \
-            .add(Paragraph("STOCK: " + df.at[i, 'inventory'], horizontal_alignment=Alignment.LEFT)) \
+            .add(Paragraph("STOCK: " + self.num_to_str(df.at[i, 'inventory']), \
+                horizontal_alignment=Alignment.LEFT)) \
             .add(Paragraph("SCRAP: ____", horizontal_alignment=Alignment.RIGHT)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            return inv_and_scrapped
         
         def tbl_line_item(i, df):
             # SETS UP A LINE ITEM - CONTAINS 4 CELLS TO DESCRIBE PART INFO
@@ -240,12 +290,13 @@ class Ticket():
                     number_of_rows=2,
                     column_widths=[Decimal(2),Decimal(1)],
                     ) \
-            .add(Paragraph(df.at[i, 'part_number']), font="Helvetica-Bold") \
-            .add(tbl_qty_per_total(df, i)) \
+            .add(Paragraph(df.at[i, 'part_num'], font="Helvetica-Bold")) \
+            .add(tbl_qty_per_total(i, df)) \
             .add(Paragraph(df.at[i, 'description'])) \
-            .add(tbl_inv_scrapped(df, i)) \
+            .add(tbl_inv_scrapped(i, df)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), m/2, Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            return line_item
         
         # SETS UP 10-LINE RAW GO0DS TABLE
         tbl_raw_goods = FixedColumnWidthTable(
@@ -278,19 +329,20 @@ class Ticket():
         .add(raw_goods_bar) \
         .add(tbl_raw_goods) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
-            
-        row_num = 0
+        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+        
+        # MAIN FUNCTION    
+        current_row= 0
         df = self.raws[n]
         num_of_rows = len(df)
         # write each line item
         for i in df.index:
-            add_row(tbl_raw_goods, tbl_line_item(df, i))
-            row_num += 1
-        # "close" the table by applying the formatting
+            add_row(tbl_raw_goods, tbl_line_item(i, df))
+            current_row += 1
+        # now that we've listed all items, "close" the table by applying the table formatting
         close_table(tbl_raw_goods)
         # determine how much room is left in the table and fill the rest with blank rows
-        for x in range(0, 11-num_of_rows):
+        for _ in range(0, 10-num_of_rows):
             fill_blank_rows(tbl_raw_goods)
                 
         #------------------------ RAW GOODS CONTAINER ------------------------------#
@@ -306,11 +358,11 @@ class Ticket():
         tbl_body.layout(self.page[n], raw_goods_container)
         
     def generate_footer(self, n):
-        num_of_pages = len(self.page)
-        
+        num_of_pages = len(self.raws)
         
         def handle_sign_off(n):
-        # FINISHED BY
+            if not n+1 == num_of_pages:
+                return Paragraph("none")
             sign = Paragraph(
                     "FINISHED BY: _____________________________________________",
                     margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
@@ -318,11 +370,8 @@ class Ticket():
                     font="Helvetica",
                     horizontal_alignment=Alignment.CENTERED,
                     font_size=Decimal(14)
-                )
-            if n+1 == num_of_pages:
-                return sign
-            else:
-                return Paragraph("none")
+                    )
+            return sign
             
         # PAGE COUNTER
         page_counter = Paragraph(
@@ -358,10 +407,11 @@ class Ticket():
         # page.add_annotation(SquareAnnotation(footer_container, stroke_color=HexColor("#ff0000")))
         footer.layout(self.page[n], footer_container)     
     
-    def make_PDF(self):
-        self.generate_header(self)
-        for n in self.page:
-            self.generate_body(self, n)
-            self.generate_footer(self, n)
-        with open(r"/PDFs/output.pdf", "wb") as pdf_file_handle:
+    def make_PDF(self, pdf_dir):
+        for n in range(0,len(self.raws)):
+            self.generate_header(n)
+            self.generate_body(n)
+            self.generate_footer(n)
+        pdf_path = pdf_dir + "output.pdf"
+        with open(pdf_path, "wb") as pdf_file_handle:
             PDF.dumps(pdf_file_handle, self.doc)

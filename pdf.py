@@ -16,6 +16,7 @@ from borb.pdf.canvas.layout.table.table import TableCell
 from decimal import Decimal
 from main import *
 
+
 draw_border=False
 m: Decimal = Decimal(5)
 rgoods_row_padding = Decimal(8)

@@ -179,7 +179,7 @@ class WOquery():
         rg['part_num'] = pd.Series(df['bomitempart'].unique())
         for i in rg['part_num'].index:
             pn = rg['part_num'].at[i]
-            rg.at[i, 'description'] = df.loc[df['bomitempart'] == pn, 'partdescription'].iat[0].astype
+            rg.at[i, 'description'] = df.loc[df['bomitempart'] == pn, 'partdescription'].astype(str).iat[0]
             rg.at[i, 'per'] = df.loc[df['bomitempart'] == pn, 'woitemqty'].iat[0]
             rg.at[i, 'total'] = df.loc[df['bomitempart'] == pn, 'woitemtotal'].sum()
             rg.at[i, "inventory"] = df.loc[df['bomitempart'] == pn, 'invqty'].iat[0]
