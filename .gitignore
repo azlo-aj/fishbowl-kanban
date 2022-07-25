@@ -2,3 +2,4 @@
 *.pdf
 PDFs/
 .vscode/
+__pycache__ /
