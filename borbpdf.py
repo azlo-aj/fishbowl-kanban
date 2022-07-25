@@ -20,6 +20,8 @@ from decimal import Decimal
 
 # DRAW TABLE BORDERS FOR DEBUGGING
 draw_border=False
+    m: Decimal = Decimal(5)
+    rgoods_row_padding = Decimal(8)
 
 
 def main():
