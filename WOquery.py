@@ -3,9 +3,9 @@ import pandas as pd
 from datetime import datetime
 
 class WOquery():
-    def __init__(self, input_csv, extract_cats=True):
+    def __init__(self, input_csv, mode="CSTMFLD"):
         self.df = pd.read_csv(input_csv, encoding='latin-1', na_filter=False) # IMPORT FISHBOWL QUERY
-        self.extract_cats = extract_cats
+        self.mode = mode # CSTMFLD, GUESS, OR NONE
         self.setup()
            
     def setup(self):
@@ -22,21 +22,22 @@ class WOquery():
         # DELETE UNNECESSARY COLUMNS
         self.df.drop(self.df.columns[self.df.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True, errors='ignore') # DROP BLANK COLS
         self.df.drop(columns=['bomitemdescription','itemname', 'bomitemid'], inplace=True, errors='ignore')
-        if not self.extract_cats:
+        if not self.mode == "CSTMFLD":
             self.df.drop(columns=['cstmfld'], inplace=True, errors='ignore')
         
         # CREATE SOME NEW COLUMNS
-        if self.extract_cats:
+        if self.mode == "CSTMFLD":
             self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
             self.df['ticket'] = None
         self.df['processed'] = False # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
         
         # FILL NEW COLUMNS
-        if self.extract_cats:
+        if self.mode == "CSTMFLD":
             findstr = '"name": "Category", "type": "Drop-Down List", "value": "'
             self.extract_cstmfld(findstr, 'cat')
             self.find_ticket_types()
-
+    
+    
     def uppercase_df(self, df=None):
         '''
         Makes (almost) all string values in df uppercase. Needed for several methods to read strings correctly.
@@ -133,7 +134,7 @@ class WOquery():
             if isinstance(wonum, str):
                 wonum = [wonum]
             df = df.loc[df['wonum'].isin(wonum)]
-        if self.extract_cats:
+        if self.mode == "CSTMFLD":
             if isinstance(category, str) or isinstance(category, list):
                 if isinstance(category, str):
                     category = [category]
@@ -199,19 +200,29 @@ class WOquery():
         fgoods = self.filter(typeid="F", pn=active_part, df=df) # finished goods dataframe. contains all instances of active_part
         wonums = fgoods['wonum'].tolist() # find all "finished good" instances of active_part
         rgoods = self.filter(typeid="R", wonum=wonums, df=df) # find all the "raw good" instances for active_part
-        
+             
         for i in fgoods.index:
-            self.df['processed'].at[i] = True
+                self.df['processed'].at[i] = True
         for i in rgoods.index:
-            self.df['processed'].at[i] = True
-            
+                self.df['processed'].at[i] = True   
+        
         fgoods = self.format_fgoods(fgoods)
         rgoods = self.format_rgoods(rgoods)
         
+        if self.mode == "CSTMFLD":
+            ticket = self.filter(typeid="F", df=df)['ticket'].iat[0]
+        elif self.mode == "GUESS":
+            num = self.get_num_of_rgoods(rgoods)
+            if num == 1:
+                ticket = "WIP"
+            elif num > 1:
+                ticket = "ASSEMBLY"
+
         ticket_info = {
             "fgoods": fgoods,
-            "rgoods": rgoods
-        }    
+            "rgoods": rgoods,
+            "ticket": ticket
+        }
         return ticket_info
 
     def more_to_process(self, ticket=None):
@@ -220,7 +231,7 @@ class WOquery():
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
         df=self.df
-        if self.extract_cats and ticket is not None:
+        if self.mode == "CSTMFLD" and ticket is not None:
             if ticket == "WIP":
                 df = self.filter(processed=False, ticket="WIP", df=df)
                 return not df.empty
@@ -240,5 +251,15 @@ class WOquery():
         '''
         df = self.df.loc[self.df['typeid'].astype(int) == 10]
         s = pd.Series(df['bomitempart'].unique())
+        num_of_items = len(s.index)
+        return num_of_items
+    
+    def get_num_of_rgoods(self, df):
+        '''
+        When on "GUESS" mode, the program considered any part with only 
+        one unique raw good to be a "WIP" part, while everything else is "ASSEMBLY"
+        This counts the number of unique raw goods
+        '''
+        s = pd.Series(df['part_num'].unique())
         num_of_items = len(s.index)
         return num_of_items

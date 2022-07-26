@@ -1,5 +1,4 @@
 from decimal import Decimal
-from tracemalloc import start
 # from operator import inv
 # from re import M
 # from textwrap import fill
@@ -13,13 +12,13 @@ from borb.pdf.page.page_size import PageSize
 from borb.pdf.canvas.layout.annotation.square_annotation import SquareAnnotation
 # from borb.pdf.canvas.color.color import X11Color, HexColor
 # from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
-from borb_modified.table import *
-from borb_modified.fixed_column_width_table import FixedColumnWidthTable
 # from borb.pdf.canvas.layout.page_layout.multi_column_layout import SingleColumnLayout
 # from borb.pdf.canvas.layout.page_layout.page_layout import PageLayout
 # from borb.pdf.canvas.layout.table.table import TableCell as TCborb
 import pandas as pd
 # from borb_modified.table import TableCell as TCedit
+from borb_modified.table import *
+from borb_modified.fixed_column_width_table import FixedColumnWidthTable
 
 
 
@@ -28,10 +27,10 @@ m: Decimal = Decimal(5)
 rgoods_row_padding = Decimal(8)
 
 class Ticket():
-    def __init__(self, ticket_info, wip=False):
+    def __init__(self, ticket_info):
         self.fgood = ticket_info['fgoods']
         self.rgood = ticket_info['rgoods']
-        self.wip = wip
+        self.ticket = ticket_info['ticket']
         
         letter_width: Decimal = PageSize.LETTER_PORTRAIT.value[0]
         letter_height: Decimal = PageSize.LETTER_PORTRAIT.value[1]
@@ -43,6 +42,9 @@ class Ticket():
         for x in range(0, len(self.raws)):
             self.page += [Page(letter_width, letter_height)]
             self.doc.add_page(self.page[x])
+    
+    def get_ticket(self):
+        return self.ticket
             
     @staticmethod
     def num_to_str(num, place=1):
@@ -74,8 +76,6 @@ class Ticket():
             if start_pos >= num_of_rows:
                 break
             end_pos = start_pos + 10
-            print(start_pos)
-            print(end_pos)
             self.raws += [rg.iloc[start_pos:end_pos]]
             start_pos += 11
      
@@ -264,13 +264,17 @@ class Ticket():
             return qty_inv_per_total
         
         def tbl_inv_scrapped(i, df):
+            if df.at[i, 'inventory'] == 0:
+                stock = "N/A"
+            else:
+                stock = self.num_to_str(df.at[i, 'inventory'])
             # INVENTORY AND SCRAPPED
             inv_and_scrapped = FixedColumnWidthTable(
                     number_of_columns=2,
                     number_of_rows=1,
                     column_widths=[Decimal(1),Decimal(1)],
                     ) \
-            .add(Paragraph("STOCK: " + self.num_to_str(df.at[i, 'inventory']), \
+            .add(Paragraph("STOCK: " + stock, \
                 horizontal_alignment=Alignment.LEFT)) \
             .add(Paragraph("SCRAP: ____", horizontal_alignment=Alignment.RIGHT)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
