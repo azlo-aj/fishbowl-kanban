@@ -1,33 +1,44 @@
 from tkinter import *
 import tkinter as tk
 import tkinter.ttk as ttk
-from matplotlib.font_manager import is_opentype_cff_font
-from sqlalchemy import true
-from tkcalendar import DateEntry
-from tkinter.ttk import Progressbar
 import threading
 from tkinter import filedialog
 from WOquery import *
 from Ticket import *
 import time
 import os
+import pyperclip
+import sys
 
 keep_going = True
 mode = "Read CF"
+csv_path = ""
+total_items = 0
+progress = 0
+start_col = 0
+start_row = 0
+
+def resolve_path(path):
+    '''
+    copied from https://stackoverflow.com/questions/60937345/
+    how-to-set-up-relative-paths-to-make-a-portable-exe-build-in-pyinstaller-with-p/
+    '''
+    if getattr(sys, "frozen", False):
+        # If the 'frozen' flag is set, we are in bundled-app mode!
+        resolved_path = os.path.abspath(os.path.join(sys._MEIPASS, path))
+    else:
+        # Normal development mode. Use os.getcwd() or __file__ as appropriate in your case...
+        resolved_path = os.path.abspath(os.path.join(os.getcwd(), path))
+
+    return resolved_path
+
 
 class FishbowlTicketer():
     def __init__(self, fileloc, mode):
         self.file = fileloc
         self.mode = mode # separate into "WIP" and "ASSEMBLY" tickets. Requires properly configured cf-category in Fishbowl
         self.position = 0
-        
-    def get_percent(self):
-        return self.position
-    
-    def print_current_progress(self, query):
-        total = query.get_num_of_fgoods()
-        progress = self.position / total
-        print(f"Progress: {self.position} / {total} (" + "{:.2f}".format(progress) + ")")
+        self.step = 0
         
     def save_packet(self, ticket, packet):
         root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,9 +62,12 @@ class FishbowlTicketer():
         else:
             query.sort_df("WIP")
         while True:
+            global progress
             if not keep_going:
                 break
-            self.print_current_progress(query)
+            label_progress.config(text="Progress: " + "{:.2f}%".format(progress))
+            progressbar.step(self.step)
+            progress += self.step 
             if not query.more_to_process(ticket):
                 break  
             tkt = Ticket(query.get_ticket_info(ticket))
@@ -69,14 +83,13 @@ class FishbowlTicketer():
             else:
                 merged_doc.add_document(doc)
                 self.save_packet(ticket, merged_doc)
-            self.position += 1
-
+                
     def run(self):
         start_time = time.time()
         print(self.mode)
         query = WOquery(self.file)
-        total = query.get_num_of_fgoods()
-        print(f"There are {total} parts")
+        # print(f"There are {total_items} parts")
+        self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
             self.make_packet(query, "WIP")
             self.make_packet(query, "ASSEMBLY")
@@ -88,30 +101,24 @@ class FishbowlTicketer():
 # -------------------------------- app window -------------------------------- #
 # ---------------------------------------------------------------------------- #
 
-global progress_percent
-progress_percent = 0
-csv_path=""
-start_col = 0
-start_row = 0
-
 # -------------------------------- WINDOWS -------------------------------- #
 
 # ROOT WINDOW - SETUP
 root = tk.Tk()
 root.title("Fishbowl Ticketer")
 root.option_add("*tearOff", False)
-root.geometry("300x420")
+root.geometry("300x280")
 
 # ROOT WINDOW - LAYOUT
 root.columnconfigure(0, weight=1, minsize=20)
-root.rowconfigure(0, weight=1, minsize=20)
-root.rowconfigure(1, weight=1, minsize=20)
+root.rowconfigure(0, weight=1, minsize=10)
+root.rowconfigure(1, weight=1, minsize=10)
 root.rowconfigure(2, weight=1, minsize=10)
-root.rowconfigure(3, weight=0, minsize=10)
+root.rowconfigure(3, weight=1, minsize=0)
 
 # ROOT WINDOW - STYLE
 style = ttk.Style(root)
-root.tk.call('source', 'forest-dark.tcl')
+root.tk.call('source', resolve_path('forest-dark.tcl'))
 style.theme_use('forest-dark')
 
 # FILE DIALOG - STYLE
@@ -124,11 +131,11 @@ fd.withdraw()
 
 # GUI - FILE OPTIONS GUI
 rootframe = ttk.Frame(master=root, style='Card')
-rootframe.grid(columnspan=2, padx=5, pady=5)
+rootframe.grid(row = 1, columnspan=2, padx=5, pady=5)
 
 # GUI - RUN PROGRAM
 runframe = ttk.Frame(master=root, width=200, height=100, style='Card')
-runframe.grid(row=1, column=0, padx=5, pady=5)
+runframe.grid(row=2, column=0, padx=5, pady=5)
 for i in range(0,5):
     runframe.rowconfigure(i, weight=1, minsize=10)
 
@@ -142,14 +149,10 @@ def open_csv():
     '''
     creates a new file dialog window that only accepts .csv
     '''
+    global csv_path
     csv_path = filedialog.askopenfilename(master=fd, filetypes=[('CSV','*.csv')], initialdir='./')
     if csv_path == "":
-            return
-    m = mode.get()
-    k = FishbowlTicketer(fileloc=csv_path, mode=m)
-    background_thread = threading.Thread(target=k.run)
-    background_thread.daemon = True
-    background_thread.start()
+            return None
 
 mode = StringVar(rootframe)
 mode.set("Read CF")
@@ -158,41 +161,67 @@ def set_mode(option):
     allows selection of items from drop down
     '''
     option = mode.get()
-
-def print_button():
-    print('BUTTON')
     
 def stop_running(event):
     global keep_going
     keep_going = False
+    
+def run_ticketer():
+    print ("run ticketer")
+    print ("path: " + csv_path)
+    if csv_path == "":
+        return
+    m = mode.get()
+    k = FishbowlTicketer(fileloc=csv_path, mode=m)
+    background_thread = threading.Thread(target=k.run)
+    background_thread.daemon = True
+    background_thread.start()
+    
+def copy_sql_code():
+    # f = open('sql.txt', 'r')
+    # sql_code = f.read()
+    # f.close()
+    sql_code = """
+    SELECT  WO.num AS WONum, WOITEM.TYPEID,  wostatus.name AS woStatus, PART.NUM AS BOMITEMPART, 
+            PART.DESCRIPTION AS PARTDESCRIPTION, COALESCE(BOMITEM.DESCRIPTION, '') AS BOMITEMDESCRIPTION, 
+            (WOITEM.QTYTARGET / WO.QTYTARGET) AS WOITEMQTY, WOITEM.QTYTARGET AS WOITEMTOTAL, 
+            MOITEM.DESCRIPTION AS ITEMNAME, wo.qtyOrdered, WO.dateScheduled AS dateScheduledFulfillment,
+            qtyonhand.qty AS invQTY, PART.CUSTOMFIELDS AS CSTMFLD, WOITEM.ID AS BOMITEMID
+            
+    FROM    wo
+            INNER JOIN woitem ON wo.id = woitem.woid
+            INNER JOIN moitem ON woitem.moitemid = moitem.id
+            LEFT JOIN qtyonhand ON woitem.partId = qtyonhand.partid
+            LEFT JOIN wostatus ON wostatus.id = wo.statusid
+            LEFT JOIN bomitem ON moitem.bomitemid = bomitem.id
+            LEFT JOIN part ON woitem.partid = part.id
 
+    WHERE   wo.dateScheduled BETWEEN $RANGE{Select_date_range|This week|Date}
+            AND wostatus.name NOT LIKE 'FULFILLED'
+
+    ORDER BY COALESCE(moitem.sortidinstruct, 500), TYPEID ASC, BOMITEMPART DESC"""
+    print('copied')
+    pyperclip.copy(sql_code)
+    print( pyperclip.paste())
 # -------------------------------- GUI - FILE OPTIONS -------------------------------- #
 
 # WIDGETS
 button_run = ttk.Button(master=rootframe, text="Choose File", width=25, command=open_csv)
-label_date_start = ttk.Label(master=rootframe, text="Start date:")
-label_date_end = tk.Label(master=rootframe, text="End date:")
-date_start = DateEntry(master=rootframe, width=7, background='#3e5c3e', foreground='white', borderwidth=2)
-date_end = DateEntry(master=rootframe, width=7, background='#3e5c3e', foreground='white', borderwidth=2)
-label_mode = ttk.Label(master=rootframe, text="Split mode:")
+label_mode = ttk.Label(master=rootframe, text="Separation mode:")
 select_mode = ttk.OptionMenu(rootframe, mode, "Read CF", "Guess", "None", command=set_mode)
 
 # WIDGET PLACEMENT
 button_run.grid(row=start_row, column=start_col, padx=5, pady=5, columnspan=2)
-label_date_start.grid(row=start_row+1, column=start_col, padx=5, pady=5, sticky="w")
-label_date_end.grid(row=start_row+2, column=start_col, padx=5, pady=5, sticky="w")
-date_start.grid(row=start_row+1, column=start_col+1, padx=5, pady=5, sticky="e")
-date_end.grid(row=start_row+2, column=start_col+1, padx=5, pady=5, sticky="e")
-label_mode.grid(row=start_row+3, column=start_col, padx=5, pady=5, sticky="w")
+label_mode.grid(row=start_row+1, column=start_col, padx=5, pady=5, sticky="w")
 select_mode.config(width=7)
-select_mode.grid(row=start_row+3, column=start_col+1, columnspan=2, padx=5, pady=5, sticky="e")
+select_mode.grid(row=start_row+1, column=start_col+1, columnspan=2, padx=5, pady=5, sticky="e")
 
 # -------------------------------- GUI - RUN PROGRAM -------------------------------- #
-
 # WIDGETS
-progressbar = ttk.Progressbar(runframe, value=progress_percent, length=200, mode='determinate')
-label_progress = tk.Label(runframe, text=f"Progress: {progress_percent}%")
-button_run = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.TButton', width=25)
+progressbar = ttk.Progressbar(runframe, value=0, length=200, mode='determinate')
+label_progress = tk.Label(runframe, text=f"Progress: {str(progress)}%")
+button_run = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.TButton', 
+                        width=25, command=run_ticketer)
 
 # WIDGET PLACEMENT
 progressbar.grid(row=2, columnspan=4, padx=5, pady=13, )
@@ -202,13 +231,14 @@ button_run.grid(row=3, padx=5, columnspan=2)
 # -------------------------------- GUI - FOOTER -------------------------------- #
 
 # WIDGETS
-button_run = ttk.Button(master=root, text="Save Config", width=10)
-label_version = tk.Label(master=footer, text="v00.01", width=12, height=1, fg="#6e6e6e")
+label_version = tk.Label(master=footer, text="v00.1", width=8, height=1, fg="#6e6e6e")
+# get_sql_code = tk.Label(master=footer, text="SQL Code", width=12, height=1, fg="#6e6e6e")
+button_sql = tk.Button(master=footer, text="SQL Code to Clipboard", width=16, command=copy_sql_code, 
+                       bd=0, activebackground="#313131", fg="#6e6e6e")
 
 # WIDGET PLACEMENT
-button_run.grid(row=2, padx=5, pady=5)
-label_version.grid(row=0, column=0)
-
+label_version.grid(row=0, column=1)
+button_sql.grid(row=0, column=0)
 
 root.bind('<Destroy>', stop_running)
 root.mainloop()
