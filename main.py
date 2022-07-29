@@ -11,6 +11,7 @@ import datetime
 from datetime import date
 import os
 import sys
+from PIL import Image
 
 running = False
 keep_going = True
@@ -104,7 +105,7 @@ class FishbowlTicketer():
 root = tk.Tk()
 root.title("Brazos Ticketer")
 root.option_add("*tearOff", False)
-root.geometry("280x330")
+root.geometry("280x430")
 
 # ROOT WINDOW - LAYOUT
 root.columnconfigure(0, weight=1, minsize=20)
@@ -196,6 +197,13 @@ def stop_running(event):
     root.destroy()
     sys.exit(0)
 
+# -------------------------------- GUI - IMG LOGO -------------------------------- #
+
+img = tk.PhotoImage(file="logo.png")
+logo = ttk.Label(root, image=img)
+logo.image = img
+logo.grid(row=0, column=0, columnspan=2, padx=5, pady=5,)
+
 # -------------------------------- GUI - FILE OPTIONS -------------------------------- #
 
 # WIDGETS
@@ -227,7 +235,7 @@ button_choosefile.grid(row=3, padx=5, columnspan=2)
 # -------------------------------- GUI - FOOTER -------------------------------- #
 
 # WIDGETS
-label_version = tk.Label(master=footerframe, text="v00.1", width=12, height=1, fg="#6e6e6e")
+label_version = tk.Label(master=footerframe, text="v1.0", width=12, height=1, fg="#6e6e6e")
 # get_sql_code = tk.Label(master=footer, text="SQL Code", width=12, height=1, fg="#6e6e6e")
 button_sql = tk.Button(master=footerframe, text="SQL Code", width=12, 
                        bd=0, activebackground="#313131", fg="#6e6e6e", command=open_sql_window)
@@ -238,5 +246,6 @@ button_sql.grid(row=0, column=0)
 
 # -------------------------------- MAINLOOP -------------------------------- #
 
+root.wm_attributes('-toolwindow', 'True') # remove icon from titlebar
 root.bind('<Destroy>', stop_running)
 root.mainloop()
