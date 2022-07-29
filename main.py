@@ -13,6 +13,7 @@ import sys
 keep_going = True
 mode = "Read CF"
 csv_path = ""
+save_dir = ""
 total_items = 0
 progress = 0
 start_col = 0
@@ -41,14 +42,14 @@ class FishbowlTicketer():
         self.step = 0
         
     def save_packet(self, ticket, packet):
-        root_dir = os.path.dirname(os.path.abspath(__file__))
-        pdf_dir = root_dir + '/PDFs/'
-        if not os.path.isdir(pdf_dir):
-            os.mkdir(pdf_dir, 0o0777)
+        # root_dir = os.path.dirname(os.path.abspath(__file__))
+        # pdf_dir = root_dir + '/PDFs/'
+        # if not os.path.isdir(pdf_dir):
+        #     os.mkdir(pdf_dir, 0o0777)
         if ticket is not None:
-            pdf_path = pdf_dir + f"{str(ticket)}.pdf"
+            pdf_path = save_dir + f"TICKET - {str(ticket)}.pdf"
         else:
-            pdf_path = pdf_dir + "ALL.pdf"
+            pdf_path = save_dir + "TICKET - ALL.pdf"
         with open(pdf_path, "wb") as pdf_file_handle:
             PDF.dumps(pdf_file_handle, packet)
     
@@ -57,7 +58,6 @@ class FishbowlTicketer():
         wip_doc = Document()
         assembly_doc = Document()
         if ticket:
-            # print(f'sorting by {ticket}')
             query.sort_df(ticket)
         else:
             query.sort_df("WIP")
@@ -65,11 +65,11 @@ class FishbowlTicketer():
             global progress
             if not keep_going:
                 break
+            if not query.more_to_process(ticket):
+                break 
             label_progress.config(text="Progress: " + "{:.2f}%".format(progress))
             progressbar.step(self.step)
             progress += self.step 
-            if not query.more_to_process(ticket):
-                break  
             tkt = Ticket(query.get_ticket_info(ticket))
             doc = tkt.make_PDF()
             if self.mode == "Guess":
@@ -88,14 +88,16 @@ class FishbowlTicketer():
         start_time = time.time()
         print(self.mode)
         query = WOquery(self.file)
-        # print(f"There are {total_items} parts")
         self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
-            self.make_packet(query, "WIP")
             self.make_packet(query, "ASSEMBLY")
+            self.make_packet(query, "WIP")
         else:
             self.make_packet(query)
-        print("Process finished --- %s seconds ---" % (time.time() - start_time))
+        time_ran = time.time() - start_time
+        time_ran = "{:.0f}".format(time_ran)
+        label_progress.config(text=f"Completed in {time_ran} secs")
+        progressbar.stop()
 
 # ---------------------------------------------------------------------------- #
 # -------------------------------- app window -------------------------------- #
@@ -145,14 +147,28 @@ footer.grid(row=3, column=0, pady=5, sticky="S")
 
 # -------------------------------- FUNCTIONS -------------------------------- #
 
-def open_csv():
+def choose_save_dir():
     '''
     creates a new file dialog window that only accepts .csv
     '''
+    global save_dir
+    save_dir = filedialog.askdirectory(master=fd, title="Choose a save directory", 
+                                       initialdir='./../')
+    fd.withdraw()
+    if save_dir == "":
+        return None
+    else:
+        run_ticketer()
+
+        
+def open_csv():
+    '''
+    creates a new file dialog window for choosing a save dir
+    '''
     global csv_path
-    csv_path = filedialog.askopenfilename(master=fd, filetypes=[('CSV','*.csv')], initialdir='./')
-    if csv_path == "":
-            return None
+    csv_path = filedialog.askopenfilename(master=fd, title="Choose a file", 
+                filetypes=[('CSV','*.csv')], initialdir='./../')
+    fd.withdraw()
 
 mode = StringVar(rootframe)
 mode.set("Read CF")
@@ -221,7 +237,7 @@ select_mode.grid(row=start_row+1, column=start_col+1, columnspan=2, padx=5, pady
 progressbar = ttk.Progressbar(runframe, value=0, length=200, mode='determinate')
 label_progress = tk.Label(runframe, text=f"Progress: {str(progress)}%")
 button_run = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.TButton', 
-                        width=25, command=run_ticketer)
+                        width=25, command=choose_save_dir)
 
 # WIDGET PLACEMENT
 progressbar.grid(row=2, columnspan=4, padx=5, pady=13, )
