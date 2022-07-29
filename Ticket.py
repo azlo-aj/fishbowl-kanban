@@ -293,7 +293,7 @@ class Ticket():
             .add(tbl_qty_per_total(i, df)) \
             .add(Paragraph(df.at[i, 'description'])) \
             .add(tbl_inv_scrapped(i, df)) \
-            .set_padding_on_all_cells(Decimal(0), Decimal(0), m/2, Decimal(0)) \
+            .set_padding_on_all_cells(Decimal(0), Decimal(0), m/2, m*2) \
             .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
             return line_item
         

@@ -7,10 +7,8 @@ from WOquery import *
 from Ticket import *
 from sql_code import get_code
 import time
-import os
-import sys
 from datetime import date
-
+import os
 
 keep_going = True
 mode = "Read CF"
@@ -18,23 +16,8 @@ csv_path = ""
 save_dir = ""
 total_items = 0
 progress = 0
-start_col = 0
-start_row = 0
-
-def resolve_path(path):
-    '''
-    copied from https://stackoverflow.com/questions/60937345/
-    how-to-set-up-relative-paths-to-make-a-portable-exe-build-in-pyinstaller-with-p/
-    '''
-    if getattr(sys, "frozen", False):
-        # If the 'frozen' flag is set, we are in bundled-app mode!
-        resolved_path = os.path.abspath(os.path.join(sys._MEIPASS, path))
-    else:
-        # Normal development mode. Use os.getcwd() or __file__ as appropriate in your case...
-        resolved_path = os.path.abspath(os.path.join(os.getcwd(), path))
-
-    return resolved_path
-
+START_COL = 0
+START_ROW = 0
 
 class FishbowlTicketer():
     def __init__(self, fileloc, mode):
@@ -49,7 +32,7 @@ class FishbowlTicketer():
         # if not os.path.isdir(pdf_dir):
         #     os.mkdir(pdf_dir, 0o0777)
         today = date.today()
-        pdf_path = save_dir + f"{today}_TKT_"
+        pdf_path = save_dir + os.sep + f"{today}_TKT_"
         if ticket is not None:
             pdf_path += f"{str(ticket)}.pdf"
         else:
@@ -107,17 +90,13 @@ class FishbowlTicketer():
         progressbar.stop()
         csv_path = ""
 
-# ---------------------------------------------------------------------------- #
-# -------------------------------- app window -------------------------------- #
-# ---------------------------------------------------------------------------- #
-
-# -------------------------------- WINDOWS -------------------------------- #
+# -------------------------------- TK WINDOWS -------------------------------- #
 
 # ROOT WINDOW - SETUP
 root = tk.Tk()
-root.title("Fishbowl Ticketer")
+root.title("Brazos Ticketer")
 root.option_add("*tearOff", False)
-root.geometry("300x270")
+root.geometry("280x270")
 
 # ROOT WINDOW - LAYOUT
 root.columnconfigure(0, weight=1, minsize=20)
@@ -128,7 +107,7 @@ root.rowconfigure(3, weight=1, minsize=0)
 
 # ROOT WINDOW - STYLE
 style = ttk.Style(root)
-root.tk.call('source', resolve_path('forest-dark.tcl'))
+root.tk.call('source', 'forest-dark.tcl')
 style.theme_use('forest-dark')
 
 # FILE DIALOG & STYLE
@@ -151,7 +130,7 @@ for i in range(0,5):
 
 # GUI - FOOTER
 footerframe = ttk.Frame(master=root)
-footerframe.grid(row=3, column=0, pady=1, sticky="S")
+footerframe.grid(row=3, column=0, pady=5, sticky="S")
 
 # -------------------------------- FUNCTIONS -------------------------------- #
 
@@ -190,6 +169,7 @@ def set_mode(option):
 def stop_running(event):
     global keep_going
     keep_going = False
+    root.destroy()
     
 def run_ticketer():
     if csv_path == "":
@@ -204,7 +184,7 @@ def open_sql_window():
     sql_window  = tk.Toplevel(root)
     sql_window.title("Fishbowl SQL Code")
     sql_code = get_code()
-    text_sql = tk.Text(master=sql_window, width=69, height=21, padx=15, pady=10)
+    text_sql = tk.Text(master=sql_window, width=76, height=21, padx=15, pady=10)
     text_sql.insert('end', sql_code)
     text_sql.config(state='disable')
     text_sql.pack(expand=True)
@@ -218,10 +198,10 @@ mode_list = ["Select","Read CF", "Guess", "None"]
 select_mode = ttk.OptionMenu(rootframe, mode, *mode_list, command=set_mode,)
 
 # WIDGET PLACEMENT
-button_run.grid(row=start_row, column=start_col, padx=5, pady=5, columnspan=2)
-label_mode.grid(row=start_row+1, column=start_col, padx=5, pady=5, sticky="w")
+button_run.grid(row=START_ROW, column=START_COL, padx=5, pady=5, columnspan=2)
+label_mode.grid(row=START_ROW+1, column=START_COL, padx=5, pady=5, sticky="w")
 select_mode.config(width=7)
-select_mode.grid(row=start_row+1, column=start_col+1, columnspan=2, padx=5, pady=5, sticky="e")
+select_mode.grid(row=START_ROW+1, column=START_COL+1, columnspan=2, padx=5, pady=5, sticky="e")
 
 # -------------------------------- GUI - RUN PROGRAM -------------------------------- #
 # WIDGETS
