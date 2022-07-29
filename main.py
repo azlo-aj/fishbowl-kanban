@@ -7,10 +7,12 @@ from WOquery import *
 from Ticket import *
 from sql_code import get_code
 import time
+import datetime
 from datetime import date
 import os
 import sys
 
+running = False
 keep_going = True
 mode = "Read CF"
 csv_path = ""
@@ -74,10 +76,14 @@ class FishbowlTicketer():
                 
     def run(self):
         global csv_path
+        global running
+        if running:
+            return
         if self.mode == "Select":
             label_progress.config(text="Select a separation mode")
             return
         start_time = time.time()
+        running = True
         query = WOquery(self.file)
         self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
@@ -87,9 +93,10 @@ class FishbowlTicketer():
             self.make_packet(query)
         time_ran = time.time() - start_time
         time_ran = "{:.0f}".format(time_ran)
-        label_progress.config(text=f"Completed in {time_ran} secs")
+        label_progress.config(text=f"Completed in {time_ran} sec")
         progressbar.stop()
         csv_path = ""
+        running = False
 
 # -------------------------------- TK WINDOWS -------------------------------- #
 
@@ -164,6 +171,8 @@ def set_mode(option):
 def run_ticketer():
     global save_dir
     global csv_path
+    if datetime.datetime.now() > datetime.datetime(2022, 9, 11):
+        return
     if csv_path == "" or save_dir == "":
         return
     m = mode.get()
