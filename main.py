@@ -9,6 +9,7 @@ from sql_code import get_code
 import time
 from datetime import date
 import os
+import sys
 
 keep_going = True
 mode = "Read CF"
@@ -96,7 +97,7 @@ class FishbowlTicketer():
 root = tk.Tk()
 root.title("Brazos Ticketer")
 root.option_add("*tearOff", False)
-root.geometry("280x270")
+root.geometry("280x330")
 
 # ROOT WINDOW - LAYOUT
 root.columnconfigure(0, weight=1, minsize=20)
@@ -134,21 +135,6 @@ footerframe.grid(row=3, column=0, pady=5, sticky="S")
 
 # -------------------------------- FUNCTIONS -------------------------------- #
 
-def choose_save_dir():
-    '''
-    creates a new file dialog window that only accepts .csv
-    '''
-    global save_dir
-    global csv_path
-    if csv_path == "":
-        return None
-    save_dir = filedialog.askdirectory(master=fd, title="Choose a save directory", 
-                                       initialdir='./../')
-    fd.withdraw()
-    if not save_dir == "":
-        run_ticketer()
-
-        
 def open_csv():
     '''
     creates a new file dialog window for choosing a save dir
@@ -156,6 +142,15 @@ def open_csv():
     global csv_path
     csv_path = filedialog.askopenfilename(master=fd, title="Choose a file", 
                 filetypes=[('CSV','*.csv')], initialdir='./../')
+    fd.withdraw()
+
+def choose_save_dir():
+    '''
+    creates a new file dialog window that only accepts .csv
+    '''
+    global save_dir
+    save_dir = filedialog.askdirectory(master=fd, title="Choose a save directory", 
+                                       initialdir='./../')
     fd.withdraw()
 
 mode = StringVar(rootframe)
@@ -166,13 +161,10 @@ def set_mode(option):
     '''
     option = mode.get()
     
-def stop_running(event):
-    global keep_going
-    keep_going = False
-    root.destroy()
-    
 def run_ticketer():
-    if csv_path == "":
+    global save_dir
+    global csv_path
+    if csv_path == "" or save_dir == "":
         return
     m = mode.get()
     k = FishbowlTicketer(fileloc=csv_path, mode=m)
@@ -189,31 +181,39 @@ def open_sql_window():
     text_sql.config(state='disable')
     text_sql.pack(expand=True)
 
+def stop_running(event):
+    global keep_going
+    keep_going = False
+    root.destroy()
+    sys.exit(0)
+
 # -------------------------------- GUI - FILE OPTIONS -------------------------------- #
 
 # WIDGETS
-button_run = ttk.Button(master=rootframe, text="Choose File", width=25, command=open_csv)
+button_choosefile = ttk.Button(master=rootframe, text="Browse Input File", width=25, command=open_csv)
+button_choosedir = ttk.Button(master=rootframe, text="Browse Save Directory", width=25, command=choose_save_dir)
 label_mode = ttk.Label(master=rootframe, text="Separation mode:")
 mode_list = ["Select","Read CF", "Guess", "None"]
 select_mode = ttk.OptionMenu(rootframe, mode, *mode_list, command=set_mode,)
 
 # WIDGET PLACEMENT
-button_run.grid(row=START_ROW, column=START_COL, padx=5, pady=5, columnspan=2)
-label_mode.grid(row=START_ROW+1, column=START_COL, padx=5, pady=5, sticky="w")
+button_choosefile.grid(row=START_ROW, column=START_COL, padx=5, pady=5, columnspan=2)
+button_choosedir.grid(row=START_ROW+1, column=START_COL, padx=5, pady=5, columnspan=2)
+label_mode.grid(row=START_ROW+2, column=START_COL, padx=5, pady=5, sticky="w")
 select_mode.config(width=7)
-select_mode.grid(row=START_ROW+1, column=START_COL+1, columnspan=2, padx=5, pady=5, sticky="e")
+select_mode.grid(row=START_ROW+2, column=START_COL+1, columnspan=2, padx=5, pady=5, sticky="e")
 
 # -------------------------------- GUI - RUN PROGRAM -------------------------------- #
 # WIDGETS
 progressbar = ttk.Progressbar(runframe, value=0, length=200, mode='determinate')
 label_progress = tk.Label(runframe, text=f"Progress: {str(progress)}%")
-button_run = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.TButton', 
-                        width=25, command=choose_save_dir)
+button_choosefile = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.TButton', 
+                        width=25, command=run_ticketer)
 
 # WIDGET PLACEMENT
 progressbar.grid(row=2, columnspan=4, padx=5, pady=13)
 label_progress.grid(row=1, padx=5, columnspan=3)
-button_run.grid(row=3, padx=5, columnspan=2)
+button_choosefile.grid(row=3, padx=5, columnspan=2)
 
 # -------------------------------- GUI - FOOTER -------------------------------- #
 
