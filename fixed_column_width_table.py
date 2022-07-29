@@ -13,7 +13,7 @@ from borb.io.read.types import Name
 from borb.pdf.canvas.color.color import Color, HexColor
 from borb.pdf.canvas.geometry.rectangle import Rectangle
 from borb.pdf.canvas.layout.layout_element import Alignment
-from borb_modified.table import *
+from table import *
 from borb.pdf.canvas.layout.text.paragraph import Paragraph
 from borb.pdf.page.page import Page
 

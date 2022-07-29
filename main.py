@@ -5,10 +5,12 @@ import threading
 from tkinter import filedialog
 from WOquery import *
 from Ticket import *
+from sql_code import get_code
 import time
 import os
-import pyperclip
 import sys
+from datetime import date
+
 
 keep_going = True
 mode = "Read CF"
@@ -46,10 +48,12 @@ class FishbowlTicketer():
         # pdf_dir = root_dir + '/PDFs/'
         # if not os.path.isdir(pdf_dir):
         #     os.mkdir(pdf_dir, 0o0777)
+        today = date.today()
+        pdf_path = save_dir + f"{today}_TKT_"
         if ticket is not None:
-            pdf_path = save_dir + f"TICKET - {str(ticket)}.pdf"
+            pdf_path += f"{str(ticket)}.pdf"
         else:
-            pdf_path = save_dir + "TICKET - ALL.pdf"
+            pdf_path += "COMBINED.pdf"
         with open(pdf_path, "wb") as pdf_file_handle:
             PDF.dumps(pdf_file_handle, packet)
     
@@ -85,8 +89,11 @@ class FishbowlTicketer():
                 self.save_packet(ticket, merged_doc)
                 
     def run(self):
+        global csv_path
+        if self.mode == "Select":
+            label_progress.config(text="Select a separation mode")
+            return
         start_time = time.time()
-        print(self.mode)
         query = WOquery(self.file)
         self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
@@ -98,6 +105,7 @@ class FishbowlTicketer():
         time_ran = "{:.0f}".format(time_ran)
         label_progress.config(text=f"Completed in {time_ran} secs")
         progressbar.stop()
+        csv_path = ""
 
 # ---------------------------------------------------------------------------- #
 # -------------------------------- app window -------------------------------- #
@@ -109,7 +117,7 @@ class FishbowlTicketer():
 root = tk.Tk()
 root.title("Fishbowl Ticketer")
 root.option_add("*tearOff", False)
-root.geometry("300x280")
+root.geometry("300x270")
 
 # ROOT WINDOW - LAYOUT
 root.columnconfigure(0, weight=1, minsize=20)
@@ -123,7 +131,7 @@ style = ttk.Style(root)
 root.tk.call('source', resolve_path('forest-dark.tcl'))
 style.theme_use('forest-dark')
 
-# FILE DIALOG - STYLE
+# FILE DIALOG & STYLE
 fd = tk.Tk()
 fd_Style = ttk.Style(fd)
 fd_Style.theme_use('default')
@@ -133,17 +141,17 @@ fd.withdraw()
 
 # GUI - FILE OPTIONS GUI
 rootframe = ttk.Frame(master=root, style='Card')
-rootframe.grid(row = 1, columnspan=2, padx=5, pady=5)
+rootframe.grid(row = 1, columnspan=2, padx=2, pady=5)
 
 # GUI - RUN PROGRAM
 runframe = ttk.Frame(master=root, width=200, height=100, style='Card')
-runframe.grid(row=2, column=0, padx=5, pady=5)
+runframe.grid(row=2, column=0, padx=5, pady=2)
 for i in range(0,5):
     runframe.rowconfigure(i, weight=1, minsize=10)
 
 # GUI - FOOTER
-footer = ttk.Frame(master=root)
-footer.grid(row=3, column=0, pady=5, sticky="S")
+footerframe = ttk.Frame(master=root)
+footerframe.grid(row=3, column=0, pady=1, sticky="S")
 
 # -------------------------------- FUNCTIONS -------------------------------- #
 
@@ -152,12 +160,13 @@ def choose_save_dir():
     creates a new file dialog window that only accepts .csv
     '''
     global save_dir
+    global csv_path
+    if csv_path == "":
+        return None
     save_dir = filedialog.askdirectory(master=fd, title="Choose a save directory", 
                                        initialdir='./../')
     fd.withdraw()
-    if save_dir == "":
-        return None
-    else:
+    if not save_dir == "":
         run_ticketer()
 
         
@@ -183,8 +192,6 @@ def stop_running(event):
     keep_going = False
     
 def run_ticketer():
-    print ("run ticketer")
-    print ("path: " + csv_path)
     if csv_path == "":
         return
     m = mode.get()
@@ -193,38 +200,22 @@ def run_ticketer():
     background_thread.daemon = True
     background_thread.start()
     
-def copy_sql_code():
-    # f = open('sql.txt', 'r')
-    # sql_code = f.read()
-    # f.close()
-    sql_code = """
-    SELECT  WO.num AS WONum, WOITEM.TYPEID,  wostatus.name AS woStatus, PART.NUM AS BOMITEMPART, 
-            PART.DESCRIPTION AS PARTDESCRIPTION, COALESCE(BOMITEM.DESCRIPTION, '') AS BOMITEMDESCRIPTION, 
-            (WOITEM.QTYTARGET / WO.QTYTARGET) AS WOITEMQTY, WOITEM.QTYTARGET AS WOITEMTOTAL, 
-            MOITEM.DESCRIPTION AS ITEMNAME, wo.qtyOrdered, WO.dateScheduled AS dateScheduledFulfillment,
-            qtyonhand.qty AS invQTY, PART.CUSTOMFIELDS AS CSTMFLD, WOITEM.ID AS BOMITEMID
-            
-    FROM    wo
-            INNER JOIN woitem ON wo.id = woitem.woid
-            INNER JOIN moitem ON woitem.moitemid = moitem.id
-            LEFT JOIN qtyonhand ON woitem.partId = qtyonhand.partid
-            LEFT JOIN wostatus ON wostatus.id = wo.statusid
-            LEFT JOIN bomitem ON moitem.bomitemid = bomitem.id
-            LEFT JOIN part ON woitem.partid = part.id
+def open_sql_window():
+    sql_window  = tk.Toplevel(root)
+    sql_window.title("Fishbowl SQL Code")
+    sql_code = get_code()
+    text_sql = tk.Text(master=sql_window, width=69, height=21, padx=15, pady=10)
+    text_sql.insert('end', sql_code)
+    text_sql.config(state='disable')
+    text_sql.pack(expand=True)
 
-    WHERE   wo.dateScheduled BETWEEN $RANGE{Select_date_range|This week|Date}
-            AND wostatus.name NOT LIKE 'FULFILLED'
-
-    ORDER BY COALESCE(moitem.sortidinstruct, 500), TYPEID ASC, BOMITEMPART DESC"""
-    print('copied')
-    pyperclip.copy(sql_code)
-    print( pyperclip.paste())
 # -------------------------------- GUI - FILE OPTIONS -------------------------------- #
 
 # WIDGETS
 button_run = ttk.Button(master=rootframe, text="Choose File", width=25, command=open_csv)
 label_mode = ttk.Label(master=rootframe, text="Separation mode:")
-select_mode = ttk.OptionMenu(rootframe, mode, "Read CF", "Guess", "None", command=set_mode)
+mode_list = ["Select","Read CF", "Guess", "None"]
+select_mode = ttk.OptionMenu(rootframe, mode, *mode_list, command=set_mode,)
 
 # WIDGET PLACEMENT
 button_run.grid(row=start_row, column=start_col, padx=5, pady=5, columnspan=2)
@@ -240,21 +231,23 @@ button_run = ttk.Button(master=runframe, text="Generate Tickets", style='Accent.
                         width=25, command=choose_save_dir)
 
 # WIDGET PLACEMENT
-progressbar.grid(row=2, columnspan=4, padx=5, pady=13, )
+progressbar.grid(row=2, columnspan=4, padx=5, pady=13)
 label_progress.grid(row=1, padx=5, columnspan=3)
 button_run.grid(row=3, padx=5, columnspan=2)
 
 # -------------------------------- GUI - FOOTER -------------------------------- #
 
 # WIDGETS
-label_version = tk.Label(master=footer, text="v00.1", width=8, height=1, fg="#6e6e6e")
+label_version = tk.Label(master=footerframe, text="v00.1", width=12, height=1, fg="#6e6e6e")
 # get_sql_code = tk.Label(master=footer, text="SQL Code", width=12, height=1, fg="#6e6e6e")
-button_sql = tk.Button(master=footer, text="SQL Code to Clipboard", width=16, command=copy_sql_code, 
-                       bd=0, activebackground="#313131", fg="#6e6e6e")
+button_sql = tk.Button(master=footerframe, text="SQL Code", width=12, 
+                       bd=0, activebackground="#313131", fg="#6e6e6e", command=open_sql_window)
 
 # WIDGET PLACEMENT
 label_version.grid(row=0, column=1)
 button_sql.grid(row=0, column=0)
+
+# -------------------------------- MAINLOOP -------------------------------- #
 
 root.bind('<Destroy>', stop_running)
 root.mainloop()

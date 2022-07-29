@@ -17,8 +17,9 @@ from borb.pdf.canvas.layout.annotation.square_annotation import SquareAnnotation
 # from borb.pdf.canvas.layout.table.table import TableCell as TCborb
 import pandas as pd
 # from borb_modified.table import TableCell as TCedit
-from borb_modified.table import *
-from borb_modified.fixed_column_width_table import FixedColumnWidthTable
+from table import *
+from fixed_column_width_table import FixedColumnWidthTable
+
 
 
 
