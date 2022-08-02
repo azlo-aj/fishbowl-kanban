@@ -29,7 +29,7 @@ class WOquery():
         if self.mode == "Read CF":
             self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
             self.df['ticket'] = None
-        self.df['processed'] = False # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
+        self.reset_processed() # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
         
         # FILL NEW COLUMNS
         if self.mode == "Read CF":
@@ -37,12 +37,8 @@ class WOquery():
             self.extract_cstmfld(findstr, 'cat')
             self.find_ticket_types()
     
-    def set_df(self, df):
-        '''
-        setter method for self.df
-        '''
-        self.df = df
-    
+    def reset_processed(self):
+        self.df['processed'] = False
     
     def uppercase_df(self, df=None):
         '''
@@ -217,7 +213,7 @@ class WOquery():
         
         if self.mode == "Read CF":
             ticket = self.filter(typeid="F", df=df)['ticket'].iat[0]
-        elif self.mode == "GUESS":
+        elif self.mode == "Guess":
             num = self.get_num_of_rgoods(rgoods)
             if num == 1:
                 ticket = "WIP"

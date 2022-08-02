@@ -144,10 +144,9 @@ class FishbowlTicketer():
             # so we make a backup of the dataframe before processing anything, then process one ticket type.
             # After that, we restore the backup and process the other ticket type.
             # This allows us to sort_df() for both ticket types.
-            df_bak = query.df
-            self.guess_packet(query, "ASSEMBLY")
-            query.set_df(df_bak)
             self.guess_packet(query, "WIP")
+            query.reset_processed()
+            self.guess_packet(query, "ASSEMBLY")
         else:
             self.make_packet(query)
         time_ran = time.time() - start_time
