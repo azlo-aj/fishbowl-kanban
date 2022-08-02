@@ -3,6 +3,7 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import threading
 from tkinter import filedialog
+from turtle import window_height
 from WOquery import *
 from Ticket import *
 from sql_code import get_code
@@ -22,6 +23,9 @@ total_items = 0
 progress = 0
 START_COL = 0
 START_ROW = 0
+
+ywin = None
+xwin = None
 
 class FishbowlTicketer():
     def __init__(self, fileloc, mode):
@@ -100,23 +104,50 @@ class FishbowlTicketer():
         running = False
 
 # -------------------------------- TK WINDOWS -------------------------------- #
+# ROOT - WINDOW
+root = tk.Tk()    
+root.config(relief="ridge", borderwidth=3, padx=5, pady=5)
 
-# ROOT WINDOW - SETUP
-root = tk.Tk()
-root.title("Brazos Ticketer")
-root.option_add("*tearOff", False)
-root.geometry("280x430")
+# ROOT INITIAL SCREEN LOCATION ON RUN
+ywin = int(root.winfo_screenheight()/3)
+xwin = int(root.winfo_screenwidth()/2-200)
+root.geometry("+%s+%s" % (xwin , ywin))
 
-# ROOT WINDOW - LAYOUT
-root.columnconfigure(0, weight=1, minsize=20)
-root.rowconfigure(0, weight=1, minsize=10)
-root.rowconfigure(1, weight=1, minsize=10)
-root.rowconfigure(2, weight=1, minsize=10)
-root.rowconfigure(3, weight=1, minsize=0)
+# ROOT - DRAGGING/MOVING WINDOW
+lastClickX = 0
+lastClickY = 0
+def last_click_pos(event):
+    global lastClickX, lastClickY
+    lastClickX = event.x
+    lastClickY = event.y
+def drag_window(event):
+    x, y = event.x - lastClickX + root.winfo_x(), event.y - lastClickY + root.winfo_y()
+    root.geometry("+%s+%s" % (x , y))
+root.bind('<Button-1>', last_click_pos)
+root.bind('<B1-Motion>', drag_window)
 
-# ROOT WINDOW - STYLE
-style = ttk.Style(root)
-root.tk.call('source', 'forest-dark.tcl')
+# TITLE BAR
+root.overrideredirect(True)
+title_bar = ttk.Frame(root)
+close_button = tk.Button(master=title_bar, text="x", width=2, bd=0, activebackground="#313131", command=root.destroy)
+title_bar.pack(expand=1, fill=X)
+close_button.pack(side=RIGHT)
+
+# CANVAS - WINDOW
+window = tk.Canvas(root)
+window.config(highlightcolor="#313131")
+window.pack(expand=1, fill=BOTH)
+
+# CANVAS - LAYOUT
+window.columnconfigure(0, weight=1, minsize=20)
+window.rowconfigure(0, weight=1, minsize=10)
+window.rowconfigure(1, weight=1, minsize=10)
+window.rowconfigure(2, weight=1, minsize=10)
+window.rowconfigure(3, weight=1, minsize=0)
+
+# CANVAS - STYLE
+style = ttk.Style(window)
+window.tk.call('source', 'forest-dark.tcl')
 style.theme_use('forest-dark')
 
 # FILE DIALOG & STYLE
@@ -128,17 +159,17 @@ fd.withdraw()
 # -------------------------------- FRAMES -------------------------------- #
 
 # GUI - FILE OPTIONS GUI
-rootframe = ttk.Frame(master=root, style='Card')
-rootframe.grid(row = 1, columnspan=2, padx=2, pady=5)
+fileframe = ttk.Frame(master=window, style='Card')
+fileframe.grid(row = 1, columnspan=2, padx=2, pady=5)
 
 # GUI - RUN PROGRAM
-runframe = ttk.Frame(master=root, width=200, height=100, style='Card')
+runframe = ttk.Frame(master=window, width=200, height=100, style='Card')
 runframe.grid(row=2, column=0, padx=5, pady=2)
 for i in range(0,5):
     runframe.rowconfigure(i, weight=1, minsize=10)
 
 # GUI - FOOTER
-footerframe = ttk.Frame(master=root)
+footerframe = ttk.Frame(master=window)
 footerframe.grid(row=3, column=0, pady=5, sticky="S")
 
 # -------------------------------- FUNCTIONS -------------------------------- #
@@ -161,7 +192,7 @@ def choose_save_dir():
                                        initialdir='./../')
     fd.withdraw()
 
-mode = StringVar(rootframe)
+mode = StringVar(fileframe)
 mode.set("Read CF")
 def set_mode(option):
     '''
@@ -172,7 +203,7 @@ def set_mode(option):
 def run_ticketer():
     global save_dir
     global csv_path
-    if datetime.datetime.now() > datetime.datetime(2022, 9, 11):
+    if datetime.datetime.now() > datetime.datetime(2022, 10, 11):
         return
     if csv_path == "" or save_dir == "":
         return
@@ -183,7 +214,7 @@ def run_ticketer():
     background_thread.start()
     
 def open_sql_window():
-    sql_window  = tk.Toplevel(root)
+    sql_window  = tk.Toplevel(window)
     sql_window.title("Fishbowl SQL Code")
     sql_code = get_code()
     text_sql = tk.Text(master=sql_window, width=76, height=21, padx=15, pady=10)
@@ -194,24 +225,24 @@ def open_sql_window():
 def stop_running(event):
     global keep_going
     keep_going = False
-    root.destroy()
+    window.destroy()
     sys.exit(0)
 
 # -------------------------------- GUI - IMG LOGO -------------------------------- #
 
 img = tk.PhotoImage(file="logo.png")
-logo = ttk.Label(root, image=img)
+logo = ttk.Label(window, image=img)
 logo.image = img
 logo.grid(row=0, column=0, columnspan=2, padx=5, pady=5,)
 
 # -------------------------------- GUI - FILE OPTIONS -------------------------------- #
 
 # WIDGETS
-button_choosefile = ttk.Button(master=rootframe, text="Browse Input File", width=25, command=open_csv)
-button_choosedir = ttk.Button(master=rootframe, text="Browse Save Directory", width=25, command=choose_save_dir)
-label_mode = ttk.Label(master=rootframe, text="Separation mode:")
+button_choosefile = ttk.Button(master=fileframe, text="Browse Input File", width=25, command=open_csv)
+button_choosedir = ttk.Button(master=fileframe, text="Browse Save Directory", width=25, command=choose_save_dir)
+label_mode = ttk.Label(master=fileframe, text="Separation mode:")
 mode_list = ["Select","Read CF", "Guess", "None"]
-select_mode = ttk.OptionMenu(rootframe, mode, *mode_list, command=set_mode,)
+select_mode = ttk.OptionMenu(fileframe, mode, *mode_list, command=set_mode,)
 
 # WIDGET PLACEMENT
 button_choosefile.grid(row=START_ROW, column=START_COL, padx=5, pady=5, columnspan=2)
@@ -246,6 +277,5 @@ button_sql.grid(row=0, column=0)
 
 # -------------------------------- MAINLOOP -------------------------------- #
 
-root.wm_attributes('-toolwindow', 'True') # remove icon from titlebar
 root.bind('<Destroy>', stop_running)
 root.mainloop()
