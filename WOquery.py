@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 class WOquery():
-    def __init__(self, input_csv, mode="Read CF"):
+    def __init__(self, input_csv, mode):
         self.df = pd.read_csv(input_csv, encoding='latin-1', na_filter=False) # IMPORT FISHBOWL QUERY
         self.mode = mode # CSTMFLD, GUESS, OR NONE
         self.setup()
@@ -75,7 +75,7 @@ class WOquery():
             cat = df.at[i, 'cat']
             if (typeid == 10 and cat == "STEEL") or (typeid == 20 and cat == "RAW"):
                 ticket = "WIP"
-            if (typeid == 10 and cat == "WELDMENT") or (typeid == 20 and \
+            if (typeid == 10 and cat == "ASSEMBLY") or (typeid == 20 and \
                 (cat == "FASTENER" or cat == "ACCESSORY" or cat == "STEEL")):
                 ticket = "ASSEMBLY"
             if cat == "COMPLETE":
