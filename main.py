@@ -3,7 +3,6 @@ import tkinter as tk
 import tkinter.ttk as ttk
 import threading
 from tkinter import filedialog
-from turtle import window_height
 from WOquery import *
 from Ticket import *
 from sql_code import get_code
@@ -48,52 +47,107 @@ class FishbowlTicketer():
         with open(pdf_path, "wb") as pdf_file_handle:
             PDF.dumps(pdf_file_handle, packet)
     
+    def update_progress(self):
+        global progress
+        label_progress.config(text="Progress: " + "{:.2f}%".format(progress))
+        progressbar.step(self.step)
+        progress += self.step
+        
+    def need_to_select(self):
+        global csv_path
+        global save_dir
+        if csv_path == "":
+            label_progress.config(text="Select an input file")
+            return True
+        if save_dir == "":
+            label_progress.config(text="Select a save directory")
+            return True
+        if self.mode == "Select":
+            label_progress.config(text="Select a separation mode")
+            return True
+    
     def make_packet(self, query, ticket=None):
         merged_doc = Document()
-        wip_doc = Document()
-        assembly_doc = Document()
+        doc1 = Document()
+        doc2 = Document()
         if ticket:
             query.sort_df(ticket)
         else:
             query.sort_df("WIP")
         while True:
-            global progress
             if not keep_going:
                 break
             if not query.more_to_process(ticket):
                 break 
-            label_progress.config(text="Progress: " + "{:.2f}%".format(progress))
-            progressbar.step(self.step)
-            progress += self.step 
+            self.update_progress()
             tkt = Ticket(query.get_ticket_info(ticket))
             doc = tkt.make_PDF()
-            if self.mode == "Guess":
-                ticket = tkt.get_ticket()
             if ticket == "WIP":
-                wip_doc.add_document(doc)
-                self.save_packet(ticket, wip_doc)
+                doc1.add_document(doc)
+                self.save_packet(ticket, doc1)
             elif ticket == "ASSEMBLY":
-                assembly_doc.add_document(doc)
-                self.save_packet(ticket, assembly_doc)
+                doc2.add_document(doc)
+                self.save_packet(ticket, doc2)
             else:
                 merged_doc.add_document(doc)
                 self.save_packet(ticket, merged_doc)
                 
+    def guess_packet(self, query, ticket):
+        doc1 = Document()
+        doc2 = Document()
+        query.sort_df(ticket)
+        while True:
+            # check if we can continue
+            if not keep_going: break
+            if not query.more_to_process(ticket): break
+            # now let's start making a ticket
+            tkt = Ticket(query.get_ticket_info(ticket))
+            doc = tkt.make_PDF()
+            if self.mode == "Guess":
+                if tkt.get_ticket() == ticket:
+                    self.update_progress()
+                    doc1.add_document(doc)
+                    self.save_packet(ticket, doc1)
+            elif self.mode == "Read CF":
+                self.update_progress()
+                if ticket == "WIP":
+                    doc1.add_document(doc)
+                    self.save_packet(ticket, doc1)
+                elif ticket == "ASSEMBLY":
+                    doc2.add_document(doc)
+                    self.save_packet(ticket, doc2)
+            else:
+                self.update_progress()
+                doc1.add_document(doc)
+                self.save_packet(ticket, doc1)
+
+
     def run(self):
         global csv_path
         global running
+        global progress
         if running:
             return
-        if self.mode == "Select":
-            label_progress.config(text="Select a separation mode")
+        if self.need_to_select():
             return
-        start_time = time.time()
         running = True
-        query = WOquery(self.file)
+        start_time = time.time()
+        progress = 0
+        query = WOquery(self.file, self.mode)
         self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
-            self.make_packet(query, "ASSEMBLY")
-            self.make_packet(query, "WIP")
+            self.guess_packet(query, "ASSEMBLY")
+            self.guess_packet(query, "WIP")
+        if self.mode == "Guess":
+            # Ticket type is guessed during get_ticket_info(), so we have to iterate through everything regardless.
+            # An item is marked as "processed" after iteration (even if we didn't use it),
+            # so we make a backup of the dataframe before processing anything, then process one ticket type.
+            # After that, we restore the backup and process the other ticket type.
+            # This allows us to sort_df() for both ticket types.
+            df_bak = query.df
+            self.guess_packet(query, "ASSEMBLY")
+            query.set_df(df_bak)
+            self.guess_packet(query, "WIP")
         else:
             self.make_packet(query)
         time_ran = time.time() - start_time

@@ -3,7 +3,7 @@ import pandas as pd
 from datetime import datetime
 
 class WOquery():
-    def __init__(self, input_csv, mode="CSTMFLD"):
+    def __init__(self, input_csv, mode="Read CF"):
         self.df = pd.read_csv(input_csv, encoding='latin-1', na_filter=False) # IMPORT FISHBOWL QUERY
         self.mode = mode # CSTMFLD, GUESS, OR NONE
         self.setup()
@@ -22,20 +22,26 @@ class WOquery():
         # DELETE UNNECESSARY COLUMNS
         self.df.drop(self.df.columns[self.df.columns.str.contains('unnamed',case = False)],axis = 1, inplace = True, errors='ignore') # DROP BLANK COLS
         self.df.drop(columns=['bomitemdescription','itemname', 'bomitemid'], inplace=True, errors='ignore')
-        if not self.mode == "CSTMFLD":
+        if not self.mode == "Read CF":
             self.df.drop(columns=['cstmfld'], inplace=True, errors='ignore')
         
         # CREATE SOME NEW COLUMNS
-        if self.mode == "CSTMFLD":
+        if self.mode == "Read CF":
             self.df['cat'] = None # MARKS CATEGORY. OBTAINED FROM CUSTOM FIELD COLUMN
             self.df['ticket'] = None
         self.df['processed'] = False # MARKS WHEN ROW HAS BEEN PROCESSED INTO A TICKET
         
         # FILL NEW COLUMNS
-        if self.mode == "CSTMFLD":
+        if self.mode == "Read CF":
             findstr = '"name": "Category", "type": "Drop-Down List", "value": "'
             self.extract_cstmfld(findstr, 'cat')
             self.find_ticket_types()
+    
+    def set_df(self, df):
+        '''
+        setter method for self.df
+        '''
+        self.df = df
     
     
     def uppercase_df(self, df=None):
@@ -134,7 +140,7 @@ class WOquery():
             if isinstance(wonum, str):
                 wonum = [wonum]
             df = df.loc[df['wonum'].isin(wonum)]
-        if self.mode == "CSTMFLD":
+        if self.mode == "Read CF":
             if isinstance(category, str) or isinstance(category, list):
                 if isinstance(category, str):
                     category = [category]
@@ -209,7 +215,7 @@ class WOquery():
         fgoods = self.format_fgoods(fgoods)
         rgoods = self.format_rgoods(rgoods)
         
-        if self.mode == "CSTMFLD":
+        if self.mode == "Read CF":
             ticket = self.filter(typeid="F", df=df)['ticket'].iat[0]
         elif self.mode == "GUESS":
             num = self.get_num_of_rgoods(rgoods)
@@ -231,7 +237,7 @@ class WOquery():
         Ticket type can either be "WIP" or "ASSEMBLY"
         '''
         df=self.df
-        if self.mode == "CSTMFLD" and ticket is not None:
+        if self.mode == "Read CF" and ticket is not None:
             if ticket == "WIP":
                 df = self.filter(processed=False, ticket="WIP", df=df)
                 return not df.empty

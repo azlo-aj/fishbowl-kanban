@@ -3,3 +3,7 @@
 PDFs/
 .vscode/
 __pycache__ /
+dist/
+build/
+*.zip
+*.spec
