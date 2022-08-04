@@ -100,6 +100,18 @@ class WOquery():
         self.df=df
         return self
     
+    def get_order_numbers(self):
+        '''
+        finds all manufacture order numbers present in the data, so we can know which
+        orders are and aren't included in our report
+        '''
+        def wo_to_mo(wo):
+            mo = wo.split(':', 1)
+            return mo[0]
+        order_nums = pd.Series(self.df['wonum'].unique())
+        order_nums = order_nums.apply(wo_to_mo).sort_values().unique().tolist()
+        return order_nums
+    
     def sort_df(self, ticket=None):
         '''  
         sorts the dataframe based on the order needed for either WIP or ASSEMBLY tickets

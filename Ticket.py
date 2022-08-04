@@ -1,7 +1,4 @@
 from decimal import Decimal
-# from operator import inv
-# from re import M
-# from textwrap import fill
 from borb.pdf.document.document import Document
 from borb.pdf.page.page import Page
 from borb.pdf.canvas.layout.text.paragraph import Paragraph
@@ -9,23 +6,17 @@ from borb.pdf.pdf import PDF
 from borb.pdf.canvas.geometry.rectangle import Rectangle
 from borb.pdf.canvas.layout.layout_element import Alignment
 from borb.pdf.page.page_size import PageSize
-from borb.pdf.canvas.layout.annotation.square_annotation import SquareAnnotation
-# from borb.pdf.canvas.color.color import X11Color, HexColor
-# from borb.pdf.canvas.layout.table.fixed_column_width_table import FixedColumnWidthTable
-# from borb.pdf.canvas.layout.page_layout.multi_column_layout import SingleColumnLayout
-# from borb.pdf.canvas.layout.page_layout.page_layout import PageLayout
-# from borb.pdf.canvas.layout.table.table import TableCell as TCborb
+from borb.pdf.canvas.layout.page_layout.multi_column_layout import MultiColumnLayout
 import pandas as pd
-# from borb_modified.table import TableCell as TCedit
 from table import *
 from fixed_column_width_table import FixedColumnWidthTable
 
-
-
-
-draw_border=False
+DRAW_BORDER=False
 m: Decimal = Decimal(5)
-rgoods_row_padding = Decimal(8)
+RGOODS_ROW_PADDING = Decimal(8)
+
+LETTER_WIDTH = PageSize.LETTER_PORTRAIT.value[0] 
+LETTER_HEIGHT = PageSize.LETTER_PORTRAIT.value[1]
 
 class Ticket():
     def __init__(self, ticket_info):
@@ -33,19 +24,29 @@ class Ticket():
         self.rgood = ticket_info['rgoods']
         self.ticket = ticket_info['ticket']
         
-        letter_width: Decimal = PageSize.LETTER_PORTRAIT.value[0]
-        letter_height: Decimal = PageSize.LETTER_PORTRAIT.value[1]
         self.doc: Document = Document()
-        
         self.raws = []
         self.page = []
         self.split_rgood()
         for x in range(0, len(self.raws)):
-            self.page += [Page(letter_width, letter_height)]
+            self.page += [Page(LETTER_WIDTH, LETTER_HEIGHT)]
             self.doc.add_page(self.page[x])
     
-    def get_ticket(self):
-        return self.ticket
+    @staticmethod
+    def mo_nums_PDF(mo_nums):
+        doc = Document()
+        page = Page(LETTER_WIDTH, LETTER_HEIGHT)
+        doc.add_page(page)
+        layout = MultiColumnLayout(page,3)
+        for mo in mo_nums:
+            layout.add(Paragraph(mo,
+                    margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
+                    padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
+                    horizontal_alignment=Alignment.CENTERED,
+                    font="Helvetica",
+                    font_size=Decimal(14)
+                ))
+        return doc
             
     @staticmethod
     def num_to_str(num, place=1):
@@ -63,7 +64,10 @@ class Ticket():
         else:
             num = str(num)
         return num
-            
+        
+    def get_ticket(self):
+        return self.ticket
+    
     def split_rgood(self):
         '''
         only 10 raw good items can fit per page.
@@ -147,7 +151,7 @@ class Ticket():
         .add(header_pn) \
         .add(header_desc) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # TOP HEADER - RIGHT SECTION
         header_right = FixedColumnWidthTable(
@@ -159,7 +163,7 @@ class Ticket():
         .add(Paragraph("QTY", horizontal_alignment=Alignment.RIGHT)) \
         .add(header_qty) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # TOP HEADER SECTION DIVIDER
         header_divider = FixedColumnWidthTable(
@@ -172,7 +176,7 @@ class Ticket():
         .add(header_left) \
         .add(header_right) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # TOP HEADER
         top_header = FixedColumnWidthTable(
@@ -183,7 +187,7 @@ class Ticket():
                 ) \
         .add(header_divider) \
         .set_padding_on_all_cells(Decimal(5), Decimal(5), Decimal(5), Decimal(5)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # SUB HEADER
         sub_header = FixedColumnWidthTable(
@@ -195,7 +199,7 @@ class Ticket():
         .add(earliest_fulfillment) \
         .add(subheader_qtyinv) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         if n == 0:
             # HEADER
@@ -208,7 +212,7 @@ class Ticket():
             .add(top_header) \
             .add(sub_header) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
         else:
             header = FixedColumnWidthTable(
                     number_of_columns=1,
@@ -219,7 +223,7 @@ class Ticket():
             .add(header_pn_cont) \
             .add(sub_header) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
         
     #------------------------ HEADER CONTAINER ------------------------------#
 
@@ -242,8 +246,8 @@ class Ticket():
             return table.add(line_item)
     
         def close_table(table):
-            return  table.set_padding_on_all_cells(rgoods_row_padding/2, Decimal(0), rgoods_row_padding/2, Decimal(0)) \
-                    .set_borders_on_all_cells(True, draw_border, draw_border, draw_border) \
+            return  table.set_padding_on_all_cells(RGOODS_ROW_PADDING/2, Decimal(0), RGOODS_ROW_PADDING/2, Decimal(0)) \
+                    .set_borders_on_all_cells(True, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) \
                     .set_border_color_on_all_cells(HexColor("EBEBEB")) 
 
         def fill_blank_rows(table):
@@ -261,7 +265,7 @@ class Ticket():
             .add(Paragraph("TOTAL: " + self.num_to_str(df.at[i, 'total'], 2), \
                 horizontal_alignment=Alignment.RIGHT, font="Helvetica-Bold")) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
             return qty_inv_per_total
         
         def tbl_inv_scrapped(i, df):
@@ -279,7 +283,7 @@ class Ticket():
                 horizontal_alignment=Alignment.LEFT)) \
             .add(Paragraph("SCRAP: ____", horizontal_alignment=Alignment.RIGHT)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
             return inv_and_scrapped
         
         def tbl_line_item(i, df):
@@ -294,7 +298,7 @@ class Ticket():
             .add(Paragraph(df.at[i, 'description'])) \
             .add(tbl_inv_scrapped(i, df)) \
             .set_padding_on_all_cells(Decimal(0), Decimal(0), m/2, m*2) \
-            .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+            .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
             return line_item
         
         # SETS UP 10-LINE RAW GO0DS TABLE
@@ -315,7 +319,7 @@ class Ticket():
                 ) \
         .add(Paragraph("RAW GOODS", font="Helvetica-Bold", horizontal_alignment=Alignment.CENTERED)) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), m, Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # PAGE BODY
         tbl_body = FixedColumnWidthTable(
@@ -328,7 +332,7 @@ class Ticket():
         .add(raw_goods_bar) \
         .add(tbl_raw_goods) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border)
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER)
         
         # MAIN FUNCTION    
         current_row= 0
@@ -393,7 +397,7 @@ class Ticket():
         .add(handle_sign_off(n)) \
         .add(page_counter) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
-        .set_borders_on_all_cells(draw_border, draw_border, draw_border, draw_border) 
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
     #------------------------ RAW GOODS CONTAINER ------------------------------#
         # HEADER RECTANGLE
         footer_container: Rectangle = Rectangle(
@@ -412,3 +416,4 @@ class Ticket():
             self.generate_body(n)
             self.generate_footer(n)
         return self.doc
+    
