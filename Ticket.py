@@ -75,14 +75,15 @@ class Ticket():
         each dataframe section is added to a list self.raws
         '''
         rg = self.rgood
+        items_per_page = 9
         num_of_rows = len(rg.index)
         start_pos = 0
         while start_pos < num_of_rows:
             if start_pos >= num_of_rows:
                 break
-            end_pos = start_pos + 10
+            end_pos = start_pos + items_per_page
             self.raws += [rg.iloc[start_pos:end_pos]]
-            start_pos += 11
+            start_pos += items_per_page + 1
      
     def generate_header(self, n):
         '''
@@ -121,6 +122,18 @@ class Ticket():
             padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
             font="Helvetica",
             # vertical_alignment=Alignment.TOP,
+            font_size=Decimal(12)
+        )
+        # FULFILLMENT DATE
+        wonums_string = "Work Orders: "
+        wonums_string += str(self.fgood['wo_nums'][0])
+        for num in self.fgood['wo_nums'][1:]:
+            wonums_string += f", {num}"
+        wonums = Paragraph(
+            wonums_string,
+            margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
+            padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
+            font="Helvetica",
             font_size=Decimal(12)
         )
         # TOTAL QTY
@@ -190,7 +203,7 @@ class Ticket():
         .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
         # SUB HEADER
-        sub_header = FixedColumnWidthTable(
+        sub_header_top = FixedColumnWidthTable(
                 number_of_columns=2,
                 number_of_rows=1,
                 column_widths=[Decimal(5), Decimal(2)],
@@ -198,6 +211,29 @@ class Ticket():
                 ) \
         .add(earliest_fulfillment) \
         .add(subheader_qtyinv) \
+        .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
+        
+        # SUB HEADER
+        sub_header_bottom = FixedColumnWidthTable(
+                number_of_columns=1,
+                number_of_rows=1,
+                column_widths=[Decimal(1)],
+                # background_color=HexColor("#86CD82")
+                ) \
+        .add(wonums) \
+        .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
+        .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
+        
+        # SUB HEADER
+        sub_header = FixedColumnWidthTable(
+                number_of_columns=1,
+                number_of_rows=2,
+                column_widths=[Decimal(1)],
+                # background_color=HexColor("#86CD82")
+                ) \
+        .add(sub_header_top) \
+        .add(sub_header_bottom) \
         .set_padding_on_all_cells(Decimal(0), Decimal(0), Decimal(0), Decimal(0)) \
         .set_borders_on_all_cells(DRAW_BORDER, DRAW_BORDER, DRAW_BORDER, DRAW_BORDER) 
         
@@ -237,7 +273,6 @@ class Ticket():
         # fmt: on
         # page.add_annotation(SquareAnnotation(header_container, stroke_color=HexColor("#ff0000")))
         
-        
         header.layout(self.page[n], header_container) 
         
     def generate_body(self, n):
@@ -271,6 +306,8 @@ class Ticket():
         def tbl_inv_scrapped(i, df):
             if df.at[i, 'inventory'] == 0:
                 stock = "N/A"
+            elif df.at[i, 'inventory'] > 99:
+                stock = "99"
             else:
                 stock = self.num_to_str(df.at[i, 'inventory'])
             # INVENTORY AND SCRAPPED
@@ -291,7 +328,7 @@ class Ticket():
             line_item = FixedColumnWidthTable(
                     number_of_columns=2,
                     number_of_rows=2,
-                    column_widths=[Decimal(2),Decimal(1)],
+                    column_widths=[Decimal(6),Decimal(4)],
                     ) \
             .add(Paragraph(df.at[i, 'part_num'], font="Helvetica-Bold")) \
             .add(tbl_qty_per_total(i, df)) \
@@ -353,7 +390,7 @@ class Ticket():
             Decimal(59),                            # x: 0 + page_margin
             Decimal(84 + 50),                      # y: bottom page margin + height of footer
             Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
-            Decimal((792 - 59 - 100) - (85+50)),   # height: bottom of header container - top of footer
+            Decimal(792 - 59- (85+50) - 130),   # height: container height -margin -footer_height -header_height
         )
         # fmt: on
         # page.add_annotation(SquareAnnotation(raw_goods_container, stroke_color=HexColor("#ff0000")))

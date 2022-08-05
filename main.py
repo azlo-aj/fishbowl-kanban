@@ -261,7 +261,7 @@ def set_mode(option):
 def run_ticketer():
     global save_dir
     global csv_path
-    if datetime.datetime.now() > datetime.datetime(2022, 10, 11):
+    if datetime.datetime.now() > datetime.datetime(2022, 11, 1):
         return
     if csv_path == "" or save_dir == "":
         return
