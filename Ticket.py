@@ -60,7 +60,7 @@ class Ticket():
                     padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
                     horizontal_alignment=Alignment.CENTERED,
                     font="Helvetica-Bold",
-                    font_size=Decimal(14)
+                    font_size=Decimal(10)
                 ))
         
         for mo in mo_nums:
@@ -428,7 +428,7 @@ class Ticket():
             Decimal(59),                            # x: 0 + page_margin
             Decimal(84 + 50),                      # y: bottom page margin + height of footer
             Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
-            Decimal(792 - 59- (85+50) - 165),   # height: container height -margin -footer_height -header_height
+            Decimal(792 - 59- (85+50) - 170),   # height: container height -margin -footer_height -header_height
         )
         # fmt: on
         # page.add_annotation(SquareAnnotation(raw_goods_container, stroke_color=HexColor("#ff0000")))
