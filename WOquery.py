@@ -37,6 +37,15 @@ class WOquery():
             self.extract_cstmfld(findstr, 'cat')
             self.find_ticket_types()
     
+    @staticmethod        
+    def reformat_date (date):
+        '''
+        Change date values into MM/DD/YY
+        '''
+        date = datetime.strptime(date, '%y/%m/%d')
+        date = datetime.strftime(date, '%m/%d/%y')
+        return date
+    
     def reset_processed(self):
         self.df['processed'] = False
     
@@ -158,27 +167,28 @@ class WOquery():
                 ticket = [ticket.upper()]
                 df = df.loc[df['ticket'].isin(ticket)]
         return df
+
+    def get_date_range(self):
+        '''
+        returns a list showing the earliest and latest dates in the query.
+        used to determine the query range range
+        '''
+        df = self.filter(typeid="F")
+        dates = pd.Series(df['datescheduledfulfillment'].unique()).sort_values(ascending=True)
+        start = self.reformat_date(dates.iloc[0])
+        end = self.reformat_date(dates.iloc[-1])
+        return [start, end]
+
     
-
-
     def format_fgoods(self, df):
         '''
         Returns a dictionary that gives info needed to fill out the header of a part's ticket/PDF page
         '''
-        
-        def reformat_date (date):
-            '''
-            Change date values into MM/DD/YY
-            '''
-            date = datetime.strptime(date, '%y/%m/%d')
-            date = datetime.strftime(date, '%m/%d/%y')
-            return date
-        
         fg = { "part_num": df['bomitempart'].iat[0],
                     "description": df['partdescription'].iat[0],
                     "wo_nums": df['wonum'].tolist(),
                     "total_qty": df['woitemtotal'].sum(),
-                    "earliest_date": reformat_date(df['datescheduledfulfillment'].sort_values().iat[0]),
+                    "earliest_date": self.reformat_date(df['datescheduledfulfillment'].sort_values().iat[0]),
                     "inventory": df['invqty'].iat[0],
                     # "ticket_type": "WIP"
         }

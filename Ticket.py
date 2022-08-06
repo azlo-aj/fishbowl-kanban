@@ -33,11 +33,36 @@ class Ticket():
             self.doc.add_page(self.page[x])
     
     @staticmethod
-    def mo_nums_PDF(mo_nums):
+    def cover_page(date_range, mo_nums):
+        '''
+        returns a document listing all Manufacture Order numbers
+        '''
         doc = Document()
         page = Page(LETTER_WIDTH, LETTER_HEIGHT)
         doc.add_page(page)
         layout = MultiColumnLayout(page,3)
+        layout.add(Paragraph("DATE RANGE:",
+                    margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
+                    padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
+                    horizontal_alignment=Alignment.CENTERED,
+                    font="Helvetica-Bold",
+                    font_size=Decimal(14)
+                ))
+        layout.add(Paragraph(f"{date_range[0]} to {date_range[1]}",
+                    margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
+                    padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
+                    horizontal_alignment=Alignment.CENTERED,
+                    font="Helvetica",
+                    font_size=Decimal(14)
+                ))
+        layout.add(Paragraph("PO Numbers:",
+                    margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
+                    padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
+                    horizontal_alignment=Alignment.CENTERED,
+                    font="Helvetica-Bold",
+                    font_size=Decimal(14)
+                ))
+        
         for mo in mo_nums:
             layout.add(Paragraph(mo,
                     margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
@@ -68,14 +93,27 @@ class Ticket():
     def get_ticket(self):
         return self.ticket
     
+    def wo_is_001(self):
+        '''
+        typically, the first work order in a manufacture order is the finished product.
+        we do not want the finish products in our assembly tickets, as finished products are listed in Sales Orders.
+        therefore, when in "Guess" mode, we can assume ####:001 work orders need to be dropped.
+        '''
+        wo_nums = self.fgood['wo_nums']
+        for num in wo_nums:
+            wo = str(num).split(':', 1)[1]
+            if "001" in wo:
+                return True
+
+    
     def split_rgood(self):
         '''
         only 10 raw good items can fit per page.
-        if there are more than 10 items, this splits the dataframe every 10 rows
+        if there are more than 10 items, this splits the dataframe every 10 rows.
         each dataframe section is added to a list self.raws
         '''
         rg = self.rgood
-        items_per_page = 9
+        items_per_page = 8
         num_of_rows = len(rg.index)
         start_pos = 0
         while start_pos < num_of_rows:
@@ -390,7 +428,7 @@ class Ticket():
             Decimal(59),                            # x: 0 + page_margin
             Decimal(84 + 50),                      # y: bottom page margin + height of footer
             Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
-            Decimal(792 - 59- (85+50) - 130),   # height: container height -margin -footer_height -header_height
+            Decimal(792 - 59- (85+50) - 165),   # height: container height -margin -footer_height -header_height
         )
         # fmt: on
         # page.add_annotation(SquareAnnotation(raw_goods_container, stroke_color=HexColor("#ff0000")))
@@ -448,6 +486,9 @@ class Ticket():
         footer.layout(self.page[n], footer_container)     
 
     def make_PDF(self):
+        '''
+        makes a ticket (PDF document) for a finished good
+        '''
         for n in range(0,len(self.raws)):
             self.generate_header(n)
             self.generate_body(n)

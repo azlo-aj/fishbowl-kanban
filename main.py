@@ -33,6 +33,7 @@ class FishbowlTicketer():
         self.position = 0
         self.step = 0
         self.mo_nums = None
+        self.date_range = None
         
     def save_packet(self, ticket, packet):
         # root_dir = os.path.dirname(os.path.abspath(__file__))
@@ -66,38 +67,12 @@ class FishbowlTicketer():
         if self.mode == "Select":
             label_progress.config(text="Select a separation mode")
             return True
-    
-    # def make_packet(self, query, ticket=None):
-    #     merged_doc = Document()
-    #     doc1 = Document()
-    #     doc2 = Document()
-    #     if ticket:
-    #         query.sort_df(ticket)
-    #     else:
-    #         query.sort_df("WIP")
-    #     while True:
-    #         if not keep_going:
-    #             break
-    #         if not query.more_to_process(ticket):
-    #             break 
-    #         self.update_progress()
-    #         tkt = Ticket(query.get_ticket_info(ticket))
-    #         doc = tkt.make_PDF()
-    #         if ticket == "WIP":
-    #             doc1.add_document(doc)
-    #             self.save_packet(ticket, doc1)
-    #         elif ticket == "ASSEMBLY":
-    #             doc2.add_document(doc)
-    #             self.save_packet(ticket, doc2)
-    #         else:
-    #             merged_doc.add_document(doc)
-    #             self.save_packet(ticket, merged_doc)
                 
     def make_packet(self, query, ticket=None):
         doc1 = Document()
         doc2 = doc1
-        mo_page = Ticket.mo_nums_PDF(self.mo_nums)
-        doc1.add_document(mo_page)
+        cover_page = Ticket.cover_page(self.date_range, self.mo_nums)
+        doc1.add_document(cover_page)
         query.sort_df(ticket)
         while True:
             # check if we can continue
@@ -107,6 +82,8 @@ class FishbowlTicketer():
             tkt = Ticket(query.get_ticket_info(ticket))
             if self.mode == "Guess":
                 if tkt.get_ticket() == ticket:
+                    if tkt.wo_is_001():
+                        continue
                     pages = tkt.make_PDF()
                     self.update_progress()
                     doc1.add_document(pages)
@@ -139,6 +116,7 @@ class FishbowlTicketer():
         progress = 0
         query = WOquery(self.file, self.mode)
         self.mo_nums = query.get_order_numbers()
+        self.date_range = query.get_date_range()
         self.step = 1 / query.get_num_of_fgoods() * 100
         if self.mode == "Read CF":
             self.make_packet(query, "ASSEMBLY")
@@ -146,8 +124,8 @@ class FishbowlTicketer():
         if self.mode == "Guess":
             # Ticket type is guessed during get_ticket_info(), so we have to iterate through everything regardless.
             # An item is marked as "processed" after iteration (even if we didn't use it),
-            # so we make a backup of the dataframe before processing anything, then process one ticket type.
-            # After that, we restore the backup and process the other ticket type.
+            # so we make a backup of the dataframe before processing anything, then make PDFs for only one ticket type.
+            # After that, we restore the dataframe backup and process the other ticket type.
             # This allows us to sort_df() for both ticket types.
             self.make_packet(query, "WIP")
             query.reset_processed()
