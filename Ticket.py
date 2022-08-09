@@ -10,6 +10,7 @@ from borb.pdf.canvas.layout.page_layout.multi_column_layout import MultiColumnLa
 import pandas as pd
 from table import *
 from fixed_column_width_table import FixedColumnWidthTable
+import math
 
 DRAW_BORDER=False
 m: Decimal = Decimal(5)
@@ -23,10 +24,11 @@ class Ticket():
         self.fgood = ticket_info['fgoods']
         self.rgood = ticket_info['rgoods']
         self.ticket = ticket_info['ticket']
-        
+
         self.doc: Document = Document()
         self.raws = []
         self.page = []
+        self.items_per_page = 8 # maxmimum items per page
         self.split_rgood()
         for x in range(0, len(self.raws)):
             self.page += [Page(LETTER_WIDTH, LETTER_HEIGHT)]
@@ -105,23 +107,41 @@ class Ticket():
             if "001" in wo:
                 return True
 
+    def dynamic_body_height(self):
+        '''
+        shifts the raw goods section down based on the number of work orders 
+        '''
+        wonums_string = "Work Orders: "
+        wonums_string += str(self.fgood['wo_nums'][0])
+        for num in self.fgood['wo_nums'][1:]:
+            wonums_string += f", {num}"
+        wonums_height = math.ceil(len(wonums_string) / 100) * Decimal(14) +  Decimal(5) # num of lines * line height
+        print(self.fgood['part_num'])
+        print("wonums_height" + str(wonums_height))
+        rows_to_remove = math.floor((wonums_height) / Decimal(45)) # minimum WO Num box height / raw good row height
+        if rows_to_remove < 0:
+            rows_to_remove = 0
+        return rows_to_remove
     
     def split_rgood(self):
         '''
-        only 10 raw good items can fit per page.
+        only 10 raw good items can fit per page.s
         if there are more than 10 items, this splits the dataframe every 10 rows.
         each dataframe section is added to a list self.raws
         '''
         rg = self.rgood
-        items_per_page = 8
+        rows_to_remove = self.dynamic_body_height()
+        print("rows_to_remove" + str(rows_to_remove))
+        self.items_per_page -= rows_to_remove
+        print("items_per_page" + str(self.items_per_page))
         num_of_rows = len(rg.index)
         start_pos = 0
         while start_pos < num_of_rows:
             if start_pos >= num_of_rows:
                 break
-            end_pos = start_pos + items_per_page
+            end_pos = start_pos + self.items_per_page
             self.raws += [rg.iloc[start_pos:end_pos]]
-            start_pos += items_per_page + 1
+            start_pos += self.items_per_page + 1
      
     def generate_header(self, n):
         '''
@@ -172,7 +192,7 @@ class Ticket():
             margin_top=0, margin_left=0, margin_bottom=0, margin_right=0,
             padding_top=0, padding_left=0, padding_bottom=0, padding_right=0,
             font="Helvetica",
-            font_size=Decimal(12)
+            font_size=Decimal(9)
         )
         # TOTAL QTY
         header_qty = Paragraph(
@@ -428,7 +448,8 @@ class Ticket():
             Decimal(59),                            # x: 0 + page_margin
             Decimal(84 + 50),                      # y: bottom page margin + height of footer
             Decimal(612 - 59 * 2),                  # width: page_width - 2 * page_margin
-            Decimal(792 - 59- (85+50) - 170),   # height: container height -margin -footer_height -header_height
+            # Decimal(792 - 59- (85+50) - 100 - self.items_per_page*35),   # height: container height -margin -footer_height -header_height
+            Decimal(self.items_per_page * 57 + 25), # raw good rows * avg row height + raw goods header
         )
         # fmt: on
         # page.add_annotation(SquareAnnotation(raw_goods_container, stroke_color=HexColor("#ff0000")))

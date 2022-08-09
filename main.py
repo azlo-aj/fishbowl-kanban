@@ -127,9 +127,9 @@ class FishbowlTicketer():
             # so we make a backup of the dataframe before processing anything, then make PDFs for only one ticket type.
             # After that, we restore the dataframe backup and process the other ticket type.
             # This allows us to sort_df() for both ticket types.
-            self.make_packet(query, "WIP")
-            query.reset_processed()
             self.make_packet(query, "ASSEMBLY")
+            query.reset_processed()
+            self.make_packet(query, "WIP")
         else:
             self.make_packet(query)
         time_ran = time.time() - start_time
@@ -302,7 +302,7 @@ button_choosefile.grid(row=3, padx=5, columnspan=2)
 # -------------------------------- GUI - FOOTER -------------------------------- #
 
 # WIDGETS
-label_version = tk.Label(master=footerframe, text="v1.0", width=12, height=1, fg="#6e6e6e")
+label_version = tk.Label(master=footerframe, text="v1.1", width=12, height=1, fg="#6e6e6e")
 # get_sql_code = tk.Label(master=footer, text="SQL Code", width=12, height=1, fg="#6e6e6e")
 button_sql = tk.Button(master=footerframe, text="SQL Code", width=12, 
                        bd=0, activebackground="#313131", fg="#6e6e6e", command=open_sql_window)
